@@ -21,11 +21,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Mock authentication check: accept any valid inputs for this step
     const user = {
       id: "usr_1001",
       email: email.toLowerCase(),
-      name: email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+      name: email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
       role: "user",
     };
 

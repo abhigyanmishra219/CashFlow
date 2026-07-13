@@ -1,9 +1,9 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-// Helper to convert an ArrayBuffer to a Base64URL string
-function base64url(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
+// Helper to convert an ArrayBuffer or Uint8Array to a Base64URL string
+function base64url(buf: ArrayBuffer | Uint8Array): string {
+  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
   let binary = "";
   for (let i = 0; i < bytes.byteLength; i++) {
     binary += String.fromCharCode(bytes[i]);
