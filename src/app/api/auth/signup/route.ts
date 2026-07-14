@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import bcrypt from "bcryptjs";
+import dbConnect from "@/lib/db";
+import User from "@/models/User";
 import { signJWT } from "@/lib/jwt";
 
 export async function POST(request: Request) {
@@ -34,16 +37,39 @@ export async function POST(request: Request) {
       );
     }
 
-    // Mock signup creation details
-    const newUser = {
-      id: `usr_${Math.floor(1000 + Math.random() * 9000)}`,
-      email: email.toLowerCase(),
+    // Connect to database
+    await dbConnect();
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return NextResponse.json(
+        { error: "A user with this email address already exists" },
+        { status: 400 }
+      );
+    }
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user in database
+    const user = await User.create({
       name: name.trim(),
-      role: "user",
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      role: "super admin",
+    });
+
+    // Create payload for JWT
+    const tokenPayload = {
+      id: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      role: user.role,
     };
 
-    // Sign the JWT token (it will automatically use process.env.JWT_SECRET)
-    const token = await signJWT(newUser);
+    // Sign the JWT token
+    const token = await signJWT(tokenPayload);
 
     // Set cookie
     const cookieStore = await cookies();
@@ -58,9 +84,10 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       user: {
-        id: newUser.id,
-        email: newUser.email,
-        name: newUser.name,
+        id: user._id.toString(),
+        email: user.email,
+        name: user.name,
+        role: user.role,
       },
     });
   } catch (error) {
@@ -71,3 +98,4 @@ export async function POST(request: Request) {
     );
   }
 }
+
