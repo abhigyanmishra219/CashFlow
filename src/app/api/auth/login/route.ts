@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import bcrypt from "bcryptjs";
+import dbConnect from "@/lib/db";
+import User from "@/models/User";
 import { signJWT } from "@/lib/jwt";
 
 export async function POST(request: Request) {
@@ -13,23 +16,44 @@ export async function POST(request: Request) {
       );
     }
 
-    // Simple email validation & password length constraint
-    if (!email.includes("@") || password.length < 6) {
+    // Simple email validation
+    if (!email.includes("@")) {
       return NextResponse.json(
-        { error: "Invalid email format or password too short (min 6 characters)" },
+        { error: "Please enter a valid email address" },
         { status: 400 }
       );
     }
 
-    const user = {
-      id: "usr_1001",
-      email: email.toLowerCase(),
-      name: email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
-      role: "user",
+    // Connect to database
+    await dbConnect();
+
+    // Find the user by email
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
+    }
+
+    // Compare passwords
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
+    }
+
+    const tokenPayload = {
+      id: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      role: user.role,
     };
 
-    // Sign the JWT token (it will automatically use process.env.JWT_SECRET)
-    const token = await signJWT(user);
+    // Sign the JWT token
+    const token = await signJWT(tokenPayload);
 
     // Set the JWT inside a secure, HTTP-only cookie
     const cookieStore = await cookies();
@@ -44,9 +68,10 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       user: {
-        id: user.id,
+        id: user._id.toString(),
         email: user.email,
         name: user.name,
+        role: user.role,
       },
     });
   } catch (error) {
@@ -57,3 +82,4 @@ export async function POST(request: Request) {
     );
   }
 }
+

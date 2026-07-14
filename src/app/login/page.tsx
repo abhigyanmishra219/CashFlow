@@ -2,8 +2,10 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -51,6 +53,8 @@ export default function LoginPage() {
         setErrors({ email: data.error || "Login failed. Please check your credentials." });
       } else {
         setIsSuccess(true);
+        // Redirect to protected dashboard
+        window.location.href = "/admin-dashboard";
       }
     } catch (err) {
       setErrors({ email: "An unexpected network error occurred. Please try again." });
