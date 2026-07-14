@@ -53,8 +53,12 @@ export default function LoginPage() {
         setErrors({ email: data.error || "Login failed. Please check your credentials." });
       } else {
         setIsSuccess(true);
-        // Redirect to protected dashboard
-        window.location.href = "/admin-dashboard";
+        // Redirect to role-based dashboard
+        if (data.user?.role === "counsellor") {
+          window.location.href = "/counsellor-dashboard";
+        } else {
+          window.location.href = "/admin-dashboard";
+        }
       }
     } catch (err) {
       setErrors({ email: "An unexpected network error occurred. Please try again." });
