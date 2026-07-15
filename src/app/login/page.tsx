@@ -56,6 +56,8 @@ export default function LoginPage() {
         // Redirect to role-based dashboard
         if (data.user?.role === "counsellor") {
           window.location.href = "/counsellor-dashboard";
+        } else if (data.user?.role === "brand manager") {
+          window.location.href = "/manager-dashboard";
         } else {
           window.location.href = "/admin-dashboard";
         }
@@ -77,15 +79,15 @@ export default function LoginPage() {
 
       {/* Main Card */}
       <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/60 p-8 shadow-2xl backdrop-blur-xl transition-all duration-300 hover:border-indigo-500/30">
-        
+
         {/* Header */}
         <div className="mb-8 text-center">
-          <Link href="/" className="inline-flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors mb-4">
+          {/* <Link href="/" className="inline-flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
             </svg>
             <span className="text-sm font-medium">Back to Home</span>
-          </Link>
+          </Link> */}
           <h2 className="bg-gradient-to-r from-indigo-200 via-slate-100 to-violet-200 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent">
             Welcome back
           </h2>
