@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 interface AddEnquiryModalProps {
   isOpen: boolean;
@@ -10,6 +10,20 @@ interface AddEnquiryModalProps {
 
 export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnquiryModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [counsellors, setCounsellors] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch("/api/counsellors")
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setCounsellors(data.counsellors);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -117,13 +131,25 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Assigned CRM Advisor *</label>
                 <select name="assignedCrmAdvisor" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                  <option value="Rahul Sharma">Rahul Sharma</option>
+                  <option value="">-- Select Advisor --</option>
+                  {counsellors.map(c => (
+                    <option key={c._id} value={c.name}>{c.name}</option>
+                  ))}
                 </select>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Lead Source</label>
                 <select name="leadSource" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                  <option value="walkin">walkins</option>
+                  <option value="Google Ads">Google Ads</option>
+                  <option value="Meta Ads">Meta Ads</option>
+                  <option value="Website">Website</option>
+                  <option value="Seminar">Seminar</option>
+                  <option value="Hoarding">Hoarding</option>
+                  <option value="Reference">Reference</option>
+                  <option value="Paper Ads">Paper Ads</option>
+                  <option value="Internet Search">Internet Search</option>
+                  <option value="Direct Walkin">Direct Walkin</option>
+                  <option value="Call on Database">Call on Database</option>
                 </select>
               </div>
               <div>

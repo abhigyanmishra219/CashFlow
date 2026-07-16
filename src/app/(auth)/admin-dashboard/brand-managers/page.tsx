@@ -190,8 +190,8 @@ export default function BrandManagersPage() {
                       key={idx}
                       onClick={() => setSelectedManagerId(manager.id)}
                       className={`p-4 rounded-2xl border-2 transition-all cursor-pointer group ${selectedManagerId === manager.id
-                          ? "border-indigo-100 bg-indigo-50/30"
-                          : "border-slate-100 bg-white hover:border-slate-200"
+                        ? "border-indigo-100 bg-indigo-50/30"
+                        : "border-slate-100 bg-white hover:border-slate-200"
                         }`}
                     >
                       <div className="flex items-start justify-between mb-3">

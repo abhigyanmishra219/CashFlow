@@ -3,11 +3,13 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useUser } from "@/app/component/context/user-context";
 
 interface SidebarItem {
   name: string;
   href: string;
   icon: React.ReactNode;
+  isLogout?: boolean;
 }
 
 interface SidebarGroup {
@@ -17,6 +19,7 @@ interface SidebarGroup {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { logout } = useUser();
   const [isCollapsed, setIsCollapsed] = useState(true);
 
   const groups: SidebarGroup[] = [
@@ -158,11 +161,12 @@ export default function Sidebar() {
           ),
         },
         {
-          name: "System Health",
-          href: "/admin-dashboard/system-health",
+          name: "Logout",
+          href: "#",
+          isLogout: true,
           icon: (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12h3.081a2.25 2.25 0 0 0 2.242-2.248c.032-.76.652-1.372 1.412-1.372h.007c.736 0 1.33.56 1.428 1.293l.796 6.002A2.25 2.25 0 0 0 13.46 17.64c.71 0 1.293-.533 1.377-1.236l.517-4.316a1.5 1.5 0 0 1 1.492-1.32h3.905" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
             </svg>
           ),
         },
@@ -206,6 +210,24 @@ export default function Sidebar() {
             <ul className="space-y-1">
               {group.items.map((item) => {
                 const isActive = pathname === item.href;
+                
+                if (item.isLogout) {
+                  return (
+                    <li key={item.name}>
+                      <button
+                        onClick={logout}
+                        className={`w-full group flex items-center ${isCollapsed ? "justify-center" : "gap-3 px-3"} py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 text-rose-500 hover:bg-rose-50 hover:text-rose-600`}
+                        title={isCollapsed ? item.name : undefined}
+                      >
+                        <span className="text-rose-400 group-hover:text-rose-600 transition-colors">
+                          {item.icon}
+                        </span>
+                        {!isCollapsed && <span>{item.name}</span>}
+                      </button>
+                    </li>
+                  );
+                }
+
                 return (
                   <li key={item.name}>
                     <Link

@@ -11,6 +11,7 @@ interface AdmissionModalProps {
 
 export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: AdmissionModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [courses, setCourses] = useState<any[]>([]);
   
   // 1. Student Information
   const [fullName, setFullName] = useState(lead?.studentFullName || "");
@@ -66,6 +67,19 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
       setInstallmentAmount(Math.round(remainingBalance / numInstallments));
     }
   }, [remainingBalance, numInstallments, hasEmi]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch("/api/courses")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            setCourses(data.data);
+          }
+        })
+        .catch((err) => console.error("Failed to fetch courses:", err));
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && lead) {
@@ -282,7 +296,28 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <div className="flex flex-col gap-1.5 md:col-span-2">
                     <label className="text-xs font-bold text-slate-500">Course <span className="text-rose-500">*</span></label>
-                    <input type="text" value={course} onChange={e=>setCourse(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
+                    <select 
+                      value={course} 
+                      onChange={e => {
+                        const selectedCourseName = e.target.value;
+                        setCourse(selectedCourseName);
+                        
+                        const selectedCourseObj = courses.find(c => c.name === selectedCourseName);
+                        if (selectedCourseObj) {
+                          if (selectedCourseObj.duration) setDuration(selectedCourseObj.duration);
+                          if (selectedCourseObj.fee) {
+                            const numFee = Number(selectedCourseObj.fee.replace(/[^0-9]/g, '')) || 0;
+                            setCourseFee(numFee);
+                          }
+                        }
+                      }} 
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                    >
+                      <option value="">Select a course...</option>
+                      {courses.map(c => (
+                        <option key={c._id} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="flex flex-col gap-1.5 md:col-span-2">
                     <label className="text-xs font-bold text-slate-500">Batch <span className="text-rose-500">*</span></label>
