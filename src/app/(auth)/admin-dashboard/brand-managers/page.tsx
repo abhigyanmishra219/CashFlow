@@ -331,6 +331,9 @@ export default function BrandManagersPage() {
           </div>
         </div>
 
+<<<<<<< HEAD
+
+=======
         {/* Footer */}
         <div className="fixed bottom-0 left-64 right-0 h-10 bg-white border-t border-slate-200 flex items-center justify-between px-6 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)]">
           <div className="flex items-center gap-6">
@@ -348,6 +351,7 @@ export default function BrandManagersPage() {
             <span className="text-[10px] font-extrabold text-indigo-600">CoachFlow Enterprise v1.2</span>
           </div>
         </div>
+>>>>>>> Chaitanya-local
 
         {/* FAB */}
         <button
