@@ -3,73 +3,20 @@
 import React, { useState, useEffect } from "react";
 import AddEnquiryModal from "./AddEnquiryModal";
 import LeadProfile from "./LeadProfile";
+import { useUser } from "@/app/component/context/user-context";
 
-export default function EnquiriesDisplay() {
+export default function CounsellorEnquiriesDisplay() {
+  const { user } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
-
-  const stats = [
-    {
-      title: "Today's Enquiries",
-      value: "0",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-blue-500">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
-        </svg>
-      ),
-      bg: "bg-blue-50/50 border-blue-100"
-    },
-    {
-      title: "Pending Follow-ups",
-      value: "4",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-amber-500">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-        </svg>
-      ),
-      bg: "bg-amber-50/50 border-amber-100"
-    },
-    {
-      title: "Admissions Converted",
-      value: "0",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-emerald-500">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-        </svg>
-      ),
-      bg: "bg-emerald-50/50 border-emerald-100"
-    },
-    {
-      title: "Lost Leads",
-      value: "0",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-rose-500">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-        </svg>
-      ),
-      bg: "bg-rose-50/50 border-rose-100"
-    },
-    {
-      title: "Conversion Rate",
-      value: "0%",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-purple-500">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
-        </svg>
-      ),
-      bg: "bg-purple-50/50 border-purple-100"
-    }
-  ];
 
   const [enquiries, setEnquiries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [dateOffset, setDateOffset] = useState(0);
 
-  // New filter states
-  const [brandFilter, setBrandFilter] = useState("");
-  const [advisorFilter, setAdvisorFilter] = useState("");
+  // Filter states
   const [sourceFilter, setSourceFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -78,11 +25,10 @@ export default function EnquiriesDisplay() {
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      // Apply search immediately if empty, otherwise wait for at least 3 chars
       if (searchQuery.length >= 3 || searchQuery.length === 0) {
         setDebouncedSearchQuery(searchQuery);
       }
-    }, 500); // 500ms debounce
+    }, 500);
 
     return () => clearTimeout(handler);
   }, [searchQuery]);
@@ -91,17 +37,21 @@ export default function EnquiriesDisplay() {
   targetDate.setDate(targetDate.getDate() - dateOffset);
   const targetDateString = targetDate.toDateString();
 
+  // Apply UI filters to all enquiries
   const filteredEnquiries = enquiries.filter((lead) => {
-    // 1. Dropdown Filters
-    if (brandFilter && lead.targetBrand !== brandFilter) return false;
-    if (advisorFilter && lead.assignedCrmAdvisor !== advisorFilter) return false;
+    // 1. Restrict to leads assigned to the logged-in counsellor
+    if (!user) return false;
+    const advisor = (lead.assignedCrmAdvisor || "").toLowerCase().trim();
+    const currentUser = (user.name || "").toLowerCase().trim();
+    if (advisor !== currentUser) return false;
+
+    // 2. Dropdown Filters
     if (sourceFilter && lead.leadSource !== sourceFilter) return false;
     if (priorityFilter && lead.priorityLevel !== priorityFilter) return false;
     if (statusFilter && lead.status !== statusFilter) return false;
 
-    // 2. Date Filtering
+    // Date Filtering
     if (startDateFilter || endDateFilter) {
-      // Custom date range overrides the daily pagination
       if (lead.createdAt) {
         const leadDate = new Date(lead.createdAt);
         leadDate.setHours(0, 0, 0, 0);
@@ -120,12 +70,10 @@ export default function EnquiriesDisplay() {
         return false;
       }
     } else {
-      // Default to daily pagination if no custom range is set
       if (lead.createdAt) {
         const leadDate = new Date(lead.createdAt);
         if (leadDate.toDateString() !== targetDateString) return false;
       } else {
-        // If no createdAt (old data), only show on "Today" for fallback
         if (dateOffset !== 0) return false; 
       }
     }
@@ -160,12 +108,92 @@ export default function EnquiriesDisplay() {
     fetchEnquiries();
   }, []);
 
-  // Compute unique values for dropdowns based on actual database entries
-  const uniqueBrands = Array.from(new Set(enquiries.map(e => e.targetBrand).filter(Boolean)));
-  const uniqueAdvisors = Array.from(new Set(enquiries.map(e => e.assignedCrmAdvisor).filter(Boolean)));
+  // Compute unique values for dropdowns based on all database entries
   const uniqueSources = Array.from(new Set(enquiries.map(e => e.leadSource).filter(Boolean)));
   const uniquePriorities = Array.from(new Set(enquiries.map(e => e.priorityLevel).filter(Boolean)));
   const uniqueStatuses = Array.from(new Set(enquiries.map(e => e.status).filter(Boolean)));
+
+  // Calculate counsellor-specific metrics for the cards at the top
+  const counsellorLeads = enquiries.filter((lead) => {
+    if (!user) return false;
+    const advisor = (lead.assignedCrmAdvisor || "").toLowerCase().trim();
+    const currentUser = (user.name || "").toLowerCase().trim();
+    return advisor === currentUser;
+  });
+
+  const todayStr = new Date().toDateString();
+  const todaysCount = counsellorLeads.filter(
+    (e) => e.createdAt && new Date(e.createdAt).toDateString() === todayStr
+  ).length;
+
+  const pendingFollowupsCount = counsellorLeads.reduce((acc, lead) => {
+    const pendingTasks = lead.followUps?.filter((t: any) => !t.isCompleted).length || 0;
+    return acc + pendingTasks;
+  }, 0);
+
+  const admissionsConvertedCount = counsellorLeads.filter(
+    (e) => e.status === "Admission" || e.status === "Admitted"
+  ).length;
+
+  const lostLeadsCount = counsellorLeads.filter(
+    (e) => e.status === "Lost"
+  ).length;
+
+  const totalLeadsCount = counsellorLeads.length;
+  const conversionRate = totalLeadsCount > 0 ? Math.round((admissionsConvertedCount / totalLeadsCount) * 100) : 0;
+
+  const stats = [
+    {
+      title: "Today's Enquiries",
+      value: String(todaysCount),
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-blue-500">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+        </svg>
+      ),
+      bg: "bg-blue-50/50 border-blue-100"
+    },
+    {
+      title: "Pending Follow-ups",
+      value: String(pendingFollowupsCount),
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-amber-500">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      ),
+      bg: "bg-amber-50/50 border-amber-100"
+    },
+    {
+      title: "Admissions Converted",
+      value: String(admissionsConvertedCount),
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-emerald-500">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      ),
+      bg: "bg-emerald-50/50 border-emerald-100"
+    },
+    {
+      title: "Lost Leads",
+      value: String(lostLeadsCount),
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-rose-500">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+        </svg>
+      ),
+      bg: "bg-rose-50/50 border-rose-100"
+    },
+    {
+      title: "Conversion Rate",
+      value: `${conversionRate}%`,
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-purple-500">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+        </svg>
+      ),
+      bg: "bg-purple-50/50 border-purple-100"
+    }
+  ];
 
   const isCustomDateRangeActive = startDateFilter !== "" || endDateFilter !== "";
 
@@ -175,9 +203,9 @@ export default function EnquiriesDisplay() {
       {/* Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-800">Enquiry Management Command Center</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-800">My Enquiries</h1>
           <p className="text-xs text-slate-400 mt-0.5 max-w-xl">
-            Supervise, route, and convert student inquiries across legal CRM pathways.
+            View, plan follow-ups, and convert student inquiries assigned to you.
           </p>
         </div>
 
@@ -197,7 +225,7 @@ export default function EnquiriesDisplay() {
           </button>
           <button 
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl px-4 py-2 shadow-md shadow-indigo-600/10 transition-all"
+            className="flex items-center gap-1.5 text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl px-4 py-2 shadow-md shadow-emerald-500/10 transition-all"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -253,19 +281,11 @@ export default function EnquiriesDisplay() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by Name, Email, Phone, ID..."
-                className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
               />
             </div>
 
-            {/* Dropdowns */}
-            <select value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)} className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-600 focus:outline-none">
-              <option value="">All Brands</option>
-              {uniqueBrands.map(b => <option key={b as string} value={b as string}>{b as string}</option>)}
-            </select>
-            <select value={advisorFilter} onChange={(e) => setAdvisorFilter(e.target.value)} className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-600 focus:outline-none">
-              <option value="">All Advisors</option>
-              {uniqueAdvisors.map(a => <option key={a as string} value={a as string}>{a as string}</option>)}
-            </select>
+            {/* Dropdowns (Source, Priority, Status) */}
             <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-600 focus:outline-none">
               <option value="">All Sources</option>
               {uniqueSources.map(s => <option key={s as string} value={s as string}>{s as string}</option>)}
@@ -274,7 +294,7 @@ export default function EnquiriesDisplay() {
               <option value="">All Priorities</option>
               {uniquePriorities.map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
             </select>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-600 focus:outline-none sm:col-span-2">
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-600 focus:outline-none">
               <option value="">All Pipeline Statuses</option>
               {uniqueStatuses.map(s => <option key={s as string} value={s as string}>{s as string}</option>)}
             </select>
@@ -349,7 +369,6 @@ export default function EnquiriesDisplay() {
                         background: `conic-gradient(${gradientStops})`,
                       }}
                     >
-                      {/* Inner circle to create donut effect */}
                       <div className="w-14 h-14 sm:w-20 sm:h-20 bg-white rounded-full shadow-inner" />
                     </div>
                   ) : (
@@ -388,7 +407,7 @@ export default function EnquiriesDisplay() {
           </button>
         </div>
 
-        {/* Real Table */}
+        {/* Real Table (Removed targetBrand column header and targetBrand cell) */}
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
@@ -396,7 +415,6 @@ export default function EnquiriesDisplay() {
                 <th className="py-3 px-6">Enquiry No</th>
                 <th className="py-3 px-6">Basic Details</th>
                 <th className="py-3 px-6">Course Requested</th>
-                <th className="py-3 px-6">Registered Brand</th>
                 <th className="py-3 px-6">Advisor</th>
                 <th className="py-3 px-6">Source</th>
                 <th className="py-3 px-6">Status</th>
@@ -405,11 +423,11 @@ export default function EnquiriesDisplay() {
             <tbody className="divide-y divide-slate-100 font-semibold text-slate-600">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-xs text-slate-500">Loading enquiries...</td>
+                  <td colSpan={6} className="py-8 text-center text-xs text-slate-500">Loading enquiries...</td>
                 </tr>
               ) : filteredEnquiries.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-xs text-slate-500">No enquiries found.</td>
+                  <td colSpan={6} className="py-8 text-center text-xs text-slate-500">No enquiries found.</td>
                 </tr>
               ) : (
                 filteredEnquiries.map((lead, idx) => (
@@ -419,7 +437,7 @@ export default function EnquiriesDisplay() {
                     className="hover:bg-slate-50/40 transition-colors cursor-pointer group"
                   >
                     {/* Enquiry No */}
-                    <td className="py-4 px-6 text-slate-800 font-bold font-mono group-hover:text-indigo-600 transition-colors">
+                    <td className="py-4 px-6 text-slate-800 font-bold font-mono group-hover:text-emerald-600 transition-colors">
                       {lead.enquiryId}
                     </td>
 
@@ -432,11 +450,6 @@ export default function EnquiriesDisplay() {
                     {/* Course requested */}
                     <td className="py-4 px-6 font-mono text-[10px] text-slate-500">
                       {lead.targetCourse}
-                    </td>
-
-                    {/* Brand */}
-                    <td className="py-4 px-6 text-slate-700">
-                      {lead.targetBrand}
                     </td>
 
                     {/* Advisor dropdown */}
@@ -456,7 +469,7 @@ export default function EnquiriesDisplay() {
 
                     {/* Status */}
                     <td className="py-4 px-6">
-                      <span className="inline-flex items-center text-[9px] font-bold bg-blue-50 text-blue-600 rounded-md px-2 py-0.5 border border-blue-100 uppercase group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:border-indigo-100 transition-colors">
+                      <span className="inline-flex items-center text-[9px] font-bold bg-blue-50 text-blue-600 rounded-md px-2 py-0.5 border border-blue-100 uppercase group-hover:bg-emerald-50 group-hover:text-emerald-600 group-hover:border-emerald-100 transition-colors">
                         {lead.status}
                       </span>
                     </td>
@@ -506,7 +519,7 @@ export default function EnquiriesDisplay() {
       <div className="fixed bottom-6 right-6">
         <button 
           onClick={() => setIsAddModalOpen(true)}
-          className="h-12 w-12 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg hover:bg-indigo-500 transition-all select-none"
+          className="h-12 w-12 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg hover:bg-emerald-600 transition-all select-none"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-6 w-6">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />

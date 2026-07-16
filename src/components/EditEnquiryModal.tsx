@@ -11,6 +11,7 @@ interface EditEnquiryModalProps {
 
 export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: EditEnquiryModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [advisors, setAdvisors] = useState<string[]>(["Rahul Sharma", "Chaitanya Singhal", "Abhigyan Mishra"]);
   const [formData, setFormData] = useState({
     studentFullName: "",
     primaryPhoneMobile: "",
@@ -22,6 +23,24 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
     assignedCrmAdvisor: "",
     remarks: "",
   });
+
+  useEffect(() => {
+    async function loadAdvisors() {
+      try {
+        const response = await fetch("/api/counsellors");
+        const data = await response.json();
+        if (data.success && data.counsellors && data.counsellors.length > 0) {
+          const names = data.counsellors.map((c: any) => c.name);
+          setAdvisors(names);
+        }
+      } catch (err) {
+        console.error("Failed to load advisors in EditEnquiryModal:", err);
+      }
+    }
+    if (isOpen) {
+      loadAdvisors();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (lead) {
@@ -141,9 +160,7 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1.5">CRM Advisor</label>
               <select name="assignedCrmAdvisor" value={formData.assignedCrmAdvisor} onChange={handleChange} className="w-full text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                <option value="Rahul Sharma">Rahul Sharma</option>
-                <option value="Chaitanya Singhal">Chaitanya Singhal</option>
-                <option value="Abhigyan Mishra">Abhigyan Mishra</option>
+                {advisors.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
             </div>
           </div>
