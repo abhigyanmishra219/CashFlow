@@ -1,12 +1,14 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useUser } from "../../component/context/user-context";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
 import Link from "next/link";
+import ProfileDisplay from "@/components/ProfileDisplay";
 
 export default function CounsellorDashboardPage() {
   const { user, logout } = useUser();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   if (!user) return null;
 
@@ -58,7 +60,7 @@ export default function CounsellorDashboardPage() {
               </span>
             </button>
 
-            <div className="flex items-center gap-3 border-l border-slate-200 pl-5 cursor-pointer" onClick={logout}>
+            <div className="flex items-center gap-3 border-l border-slate-200 pl-5 cursor-pointer" onClick={() => setIsProfileOpen(true)}>
               <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold overflow-hidden shadow-sm">
                 <img src="https://ui-avatars.com/api/?name=Priya+Singh&background=10b981&color=fff" alt="User" className="h-full w-full object-cover" />
               </div>
@@ -236,6 +238,7 @@ export default function CounsellorDashboardPage() {
 
         </div>
       </div>
+      {user && <ProfileDisplay isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} logout={logout} />}
     </div>
   );
 }
