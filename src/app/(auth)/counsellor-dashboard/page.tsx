@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useUser } from "../../component/context/user-context";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
 import Link from "next/link";
@@ -8,7 +8,140 @@ import Link from "next/link";
 export default function CounsellorDashboardPage() {
   const { user, logout } = useUser();
 
+  const [stats, setStats] = useState({
+    leadsCount: 0,
+    newToday: 0,
+    followUpsToday: 0,
+    admissionsCount: 0,
+    conversionRate: "0%",
+    revenue: 0,
+    collection: 0,
+  });
+
+  const [pipeline, setPipeline] = useState({
+    newLead: 0,
+    contacted: 0,
+    interested: 0,
+    demoAttended: 0,
+    admission: 0
+  });
+
+  const [leadsList, setLeadsList] = useState<string[]>([]);
+  const [recentEnquiries, setRecentEnquiries] = useState<any[]>([]);
+  const [todayFollowUps, setTodayFollowUps] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchData = async () => {
+      try {
+        const [enqRes, admRes] = await Promise.all([
+          fetch("/api/enquiries"),
+          fetch("/api/admissions")
+        ]);
+
+        const enqData = await enqRes.json();
+        const admData = await admRes.json();
+
+        if (enqData.success && admData.success) {
+          const allEnquiries = enqData.data || [];
+          const allAdmissions = admData.data || [];
+
+          // Strict matching: only show data for the currently logged in counsellor
+          let myEnquiries = allEnquiries.filter((e: any) => (e.assignedCrmAdvisor || "").toLowerCase() === (user.name || "").toLowerCase());
+
+          let myAdmissions = allAdmissions.filter((a: any) => (a.counsellor || "").toLowerCase() === (user.name || "").toLowerCase());
+
+          // Top Metrics
+          const leadsCount = myEnquiries.length;
+          setLeadsList(myEnquiries.map((e: any) => e.studentFullName).filter(Boolean));
+
+          const todayStr = new Date().toISOString().split("T")[0];
+          const newToday = myEnquiries.filter((e: any) => {
+            const d = new Date(e.createdAt);
+            return d.toISOString().split("T")[0] === todayStr;
+          }).length;
+
+          // Follow-ups today
+          let fUpTodayCount = 0;
+          let fUpList: any[] = [];
+          myEnquiries.forEach((e: any) => {
+            if (e.followUps && e.followUps.length > 0) {
+              e.followUps.forEach((f: any) => {
+                if (f.date === todayStr) {
+                  fUpTodayCount++;
+                  fUpList.push({
+                    id: e._id + f._id,
+                    name: e.studentFullName,
+                    time: f.time || "TBD",
+                    action: f.typeOfContact || "Call",
+                    completed: f.isCompleted || false,
+                    text: `${f.typeOfContact || "Follow-up"} with ${e.studentFullName}`
+                  });
+                }
+              });
+            }
+          });
+
+          const admissionsCount = myAdmissions.length;
+          const convRate = leadsCount > 0 ? ((admissionsCount / leadsCount) * 100).toFixed(1) + "%" : "0%";
+
+          const revenue = myAdmissions.reduce((sum: number, a: any) => sum + (a.finalFee || 0), 0);
+          const collection = myAdmissions.reduce((sum: number, a: any) => sum + (a.amountReceivedToday || 0), 0);
+
+          setStats({
+            leadsCount,
+            newToday,
+            followUpsToday: fUpTodayCount,
+            admissionsCount,
+            conversionRate: convRate,
+            revenue,
+            collection
+          });
+
+          // Pipeline
+          const pLine = { newLead: 0, contacted: 0, interested: 0, demoAttended: 0, admission: 0 };
+          myEnquiries.forEach((e: any) => {
+            if (e.status === "New") pLine.newLead++;
+            else if (e.status === "Contacted") pLine.contacted++;
+            else if (e.status === "Interested") pLine.interested++;
+            else if (e.status === "Demo Attended") pLine.demoAttended++;
+            else if (e.status === "Admitted") pLine.admission++;
+          });
+          setPipeline(pLine);
+
+          // Recent Enquiries
+          setRecentEnquiries(myEnquiries.slice(0, 4));
+
+          // Follow Ups List
+          setTodayFollowUps(fUpList.slice(0, 4));
+
+          // Tasks
+          setTasks(fUpList.filter((f: any) => !f.completed).slice(0, 4));
+        }
+      } catch (err) {
+        console.error("Failed to fetch dashboard data", err);
+      }
+    };
+
+    fetchData();
+  }, [user]);
+
   if (!user) return null;
+
+  // Formatting helpers
+  const formatINR = (val: number) => {
+    if (val >= 100000) return `₹${(val / 100000).toFixed(2)} L`;
+    if (val >= 1000) return `₹${(val / 1000).toFixed(1)} K`;
+    return `₹${val}`;
+  };
+
+  const getPercent = (val: number, total: number) => {
+    if (total === 0) return "0%";
+    return ((val / total) * 100).toFixed(1) + "%";
+  };
+  const totalPipeline = Object.values(pipeline).reduce((a, b) => a + b, 0);
 
   return (
     <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
@@ -21,18 +154,8 @@ export default function CounsellorDashboardPage() {
         {/* Header Bar */}
         <header className="bg-white border-b border-slate-200/60 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
           <div className="flex items-center gap-3">
-            <button className="text-slate-400 hover:text-slate-600 transition-colors">
-              {/* <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-              </svg> */}
-            </button>
             <h1 className="text-lg font-bold text-slate-800 tracking-tight">Dashboard</h1>
           </div>
-
-          {/* Center Badge (Optional, matching mockup style) */}
-          {/* <div className="hidden md:flex absolute left-1/2 top-0 -translate-x-1/2 bg-purple-700 text-white px-6 py-2 rounded-b-xl shadow-md items-center justify-center">
-            <span className="text-xs font-bold uppercase tracking-widest">Counsellor Dashboard (Counsellor)</span>
-          </div> */}
 
           <div className="flex items-center gap-5">
             <div className="relative hidden md:block">
@@ -60,7 +183,7 @@ export default function CounsellorDashboardPage() {
 
             <div className="flex items-center gap-3 border-l border-slate-200 pl-5 cursor-pointer" onClick={logout}>
               <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold overflow-hidden shadow-sm">
-                <img src="https://ui-avatars.com/api/?name=Priya+Singh&background=10b981&color=fff" alt="User" className="h-full w-full object-cover" />
+                <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || "U")}&background=10b981&color=fff`} alt="User" className="h-full w-full object-cover" />
               </div>
               <div className="hidden sm:block">
                 <p className="text-sm font-bold text-slate-800 leading-tight">{user.name || ""}</p>
@@ -78,25 +201,25 @@ export default function CounsellorDashboardPage() {
 
           {/* Top Metrics Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-            <MetricCard title="My Leads" value="64" trend="+ 16.3% vs last period" trendUp={true} icon={
+            <MetricCard title="My Leads" value={stats.leadsCount} trend="+ 0%" trendUp={true} hoverList={leadsList} icon={
               <div className="bg-emerald-50 text-emerald-500 p-2 rounded-lg"><UserIcon /></div>
             } />
-            <MetricCard title="New Today" value="8" trend="+ 33.3% vs yesterday" trendUp={true} icon={
+            <MetricCard title="New Today" value={stats.newToday} trend="+ 0%" trendUp={true} icon={
               <div className="bg-blue-50 text-blue-500 p-2 rounded-lg"><UserAddIcon /></div>
             } />
-            <MetricCard title="Follow-ups Today" value="12" trend="+ 9.1% vs yesterday" trendUp={true} icon={
+            <MetricCard title="Follow-ups Today" value={stats.followUpsToday} trend="+ 0%" trendUp={true} icon={
               <div className="bg-orange-50 text-orange-500 p-2 rounded-lg"><CalendarIcon /></div>
             } />
-            <MetricCard title="Admissions" value="9" trend="+ 28.6% vs last period" trendUp={true} icon={
+            <MetricCard title="Admissions" value={stats.admissionsCount} trend="+ 0%" trendUp={true} icon={
               <div className="bg-purple-50 text-purple-500 p-2 rounded-lg"><AcademicIcon /></div>
             } />
-            <MetricCard title="Conversion Rate" value="21.4%" trend="+ 6.2% vs last period" trendUp={true} icon={
+            <MetricCard title="Conversion Rate" value={stats.conversionRate} trend="+ 0%" trendUp={true} icon={
               <div className="bg-blue-50 text-blue-500 p-2 rounded-lg"><ChartUpIcon /></div>
             } />
-            <MetricCard title="Revenue (INR)" value="₹4.10 L" trend="+ 18.7% vs last period" trendUp={true} icon={
+            <MetricCard title="Revenue (INR)" value={formatINR(stats.revenue)} trend="+ 0%" trendUp={true} icon={
               <div className="bg-emerald-50 text-emerald-500 p-2 rounded-lg"><ChartUpIcon /></div>
             } />
-            <MetricCard title="Collection (INR)" value="₹1.45 L" trend="+ 12.4% vs last period" trendUp={true} icon={
+            <MetricCard title="Collection (INR)" value={formatINR(stats.collection)} trend="+ 0%" trendUp={true} icon={
               <div className="bg-emerald-50 text-emerald-500 p-2 rounded-lg"><WalletIcon /></div>
             } />
           </div>
@@ -117,11 +240,11 @@ export default function CounsellorDashboardPage() {
                 </div>
                 {/* Legend */}
                 <div className="flex-1 space-y-2">
-                  <PipelineStat label="New Lead" value="8" percent="12.5%" color="bg-blue-500" />
-                  <PipelineStat label="Contacted" value="16" percent="25.0%" color="bg-emerald-400" />
-                  <PipelineStat label="Interested" value="18" percent="20.1%" color="bg-teal-400" />
-                  <PipelineStat label="Demo Attended" value="12" percent="18.8%" color="bg-amber-400" />
-                  <PipelineStat label="Admission" value="9" percent="14.1%" color="bg-purple-500" />
+                  <PipelineStat label="New Lead" value={pipeline.newLead} percent={getPercent(pipeline.newLead, totalPipeline)} color="bg-blue-500" />
+                  <PipelineStat label="Contacted" value={pipeline.contacted} percent={getPercent(pipeline.contacted, totalPipeline)} color="bg-emerald-400" />
+                  <PipelineStat label="Interested" value={pipeline.interested} percent={getPercent(pipeline.interested, totalPipeline)} color="bg-teal-400" />
+                  <PipelineStat label="Demo Attended" value={pipeline.demoAttended} percent={getPercent(pipeline.demoAttended, totalPipeline)} color="bg-amber-400" />
+                  <PipelineStat label="Admission" value={pipeline.admission} percent={getPercent(pipeline.admission, totalPipeline)} color="bg-purple-500" />
                 </div>
               </div>
             </DashboardCard>
@@ -129,30 +252,33 @@ export default function CounsellorDashboardPage() {
             {/* Today's Follow-ups */}
             <DashboardCard title="Today's Follow-ups" actionText="View All">
               <div className="space-y-4 mt-4">
-                <FollowUpItem name="Rohan Mehta" time="10:00 AM" action="Call" actionColor="text-emerald-600 bg-emerald-50 border-emerald-100" />
-                <FollowUpItem name="Sneha Gupta" time="11:30 AM" action="Demo" actionColor="text-blue-600 bg-blue-50 border-blue-100" />
-                <FollowUpItem name="Vikram Singh" time="02:00 PM" action="Follow-up" actionColor="text-amber-600 bg-amber-50 border-amber-100" />
-                <FollowUpItem name="Anjali Verma" time="04:30 PM" action="Call" actionColor="text-emerald-600 bg-emerald-50 border-emerald-100" />
+                {todayFollowUps.length > 0 ? todayFollowUps.map((f: any, i: number) => (
+                  <FollowUpItem key={f.id || i} name={f.name} time={f.time} action={f.action} actionColor="text-emerald-600 bg-emerald-50 border-emerald-100" />
+                )) : (
+                  <p className="text-xs text-slate-400">No follow-ups for today.</p>
+                )}
               </div>
             </DashboardCard>
 
             {/* My Tasks */}
             <DashboardCard title="My Tasks" actionText="View All">
               <div className="space-y-4 mt-4">
-                <TaskItem text="Call Rohan Mehta" time="10:00 AM" completed={false} />
-                <TaskItem text="Send course details to Sneha" time="11:30 AM" completed={true} />
-                <TaskItem text="Demo for Vikram Singh" time="02:00 PM" completed={false} />
-                <TaskItem text="Follow-up with Anjali" time="04:30 PM" completed={false} />
+                {tasks.length > 0 ? tasks.map((t: any, i: number) => (
+                  <TaskItem key={t.id || i} text={t.text} time={t.time} completed={t.completed} />
+                )) : (
+                  <p className="text-xs text-slate-400">No pending tasks today.</p>
+                )}
               </div>
             </DashboardCard>
 
             {/* Recent Enquiries */}
             <DashboardCard title="Recent Enquiries" actionText="View All">
               <div className="space-y-4 mt-4">
-                <EnquiryItem name="Rohan Mehta" source="Website" time="09:15 AM" />
-                <EnquiryItem name="Anjali Verma" source="Referral" time="10:20 AM" />
-                <EnquiryItem name="Vikram Singh" source="Walk-in" time="11:05 AM" />
-                <EnquiryItem name="Sneha Gupta" source="Instagram" time="12:30 PM" />
+                {recentEnquiries.length > 0 ? recentEnquiries.map((e: any, i: number) => (
+                  <EnquiryItem key={e._id || i} name={e.studentFullName} source={e.leadSource || "Website"} time={new Date(e.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} />
+                )) : (
+                  <p className="text-xs text-slate-400">No recent enquiries.</p>
+                )}
               </div>
             </DashboardCard>
 
@@ -166,19 +292,19 @@ export default function CounsellorDashboardPage() {
               <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-4 mt-4 grid grid-cols-4 gap-2 text-center">
                 <div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase">Leads</span>
-                  <p className="text-lg font-extrabold text-slate-800 mt-1">64</p>
+                  <p className="text-lg font-extrabold text-slate-800 mt-1">{stats.leadsCount}</p>
                 </div>
                 <div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase">Admissions</span>
-                  <p className="text-lg font-extrabold text-slate-800 mt-1">9</p>
+                  <p className="text-lg font-extrabold text-slate-800 mt-1">{stats.admissionsCount}</p>
                 </div>
                 <div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase">Conversion</span>
-                  <p className="text-lg font-extrabold text-slate-800 mt-1">21.4%</p>
+                  <p className="text-lg font-extrabold text-slate-800 mt-1">{stats.conversionRate}</p>
                 </div>
                 <div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase">Revenue</span>
-                  <p className="text-lg font-extrabold text-emerald-600 mt-1">₹4.10 L</p>
+                  <p className="text-lg font-extrabold text-emerald-600 mt-1">{formatINR(stats.revenue)}</p>
                 </div>
               </div>
             </DashboardCard>
@@ -188,11 +314,11 @@ export default function CounsellorDashboardPage() {
               <div className="space-y-4 mt-4">
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-2 rounded-full bg-rose-500 shrink-0"></div>
-                  <span className="text-xs font-semibold text-slate-600">7 leads are pending follow-up</span>
+                  <span className="text-xs font-semibold text-slate-600">{tasks.length} leads are pending follow-up</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></div>
-                  <span className="text-xs font-semibold text-slate-600">3 demos scheduled this week</span>
+                  <span className="text-xs font-semibold text-slate-600">0 demos scheduled this week</span>
                 </div>
               </div>
             </DashboardCard>
@@ -242,9 +368,15 @@ export default function CounsellorDashboardPage() {
 
 // Subcomponents
 
-function MetricCard({ title, value, trend, trendUp, icon }: any) {
+function MetricCard({ title, value, trend, trendUp, icon, hoverList }: any) {
+  const [showTooltip, setShowTooltip] = useState(false);
+
   return (
-    <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-shadow">
+    <div
+      className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-shadow relative"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
       <div className="flex justify-between items-start">
         <div>
           <h3 className="text-xs font-bold text-slate-500 mb-1">{title}</h3>
@@ -264,6 +396,17 @@ function MetricCard({ title, value, trend, trendUp, icon }: any) {
           {trend}
         </span>
       </div>
+
+      {showTooltip && hoverList && hoverList.length > 0 && (
+        <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-slate-200 shadow-xl rounded-xl z-50 p-2 max-h-40 overflow-y-auto">
+          <h4 className="text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider px-1">Lead Names</h4>
+          {hoverList.map((name: string, i: number) => (
+            <div key={i} className="text-xs font-semibold text-slate-700 p-1 hover:bg-slate-50 rounded">
+              {name}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

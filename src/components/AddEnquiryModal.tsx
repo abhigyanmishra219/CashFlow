@@ -11,6 +11,9 @@ interface AddEnquiryModalProps {
 export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnquiryModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [counsellors, setCounsellors] = useState<any[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [expectedCourseFee, setExpectedCourseFee] = useState("₹0");
+  const [isDemoScheduled, setIsDemoScheduled] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -19,6 +22,15 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
         .then(data => {
           if (data.success) {
             setCounsellors(data.counsellors);
+          }
+        })
+        .catch(console.error);
+
+      fetch("/api/courses")
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setCourses(data.data);
           }
         })
         .catch(console.error);
@@ -33,6 +45,9 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
 
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries());
+    
+    // Ensure boolean value for the toggle
+    data.isDemoScheduled = isDemoScheduled as any;
 
     try {
       const response = await fetch("/api/enquiries", {
@@ -123,9 +138,24 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Target Course *</label>
-                <select name="targetCourse" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
+                <select 
+                  name="targetCourse" 
+                  required 
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                  onChange={(e) => {
+                    const selectedCourseName = e.target.value;
+                    const course = courses.find(c => c.name === selectedCourseName);
+                    if (course) {
+                      setExpectedCourseFee(course.fee);
+                    } else {
+                      setExpectedCourseFee("₹0");
+                    }
+                  }}
+                >
                   <option value="">-- Select a Course --</option>
-                  <option value="AutoCAD">AutoCAD</option>
+                  {courses.map(c => (
+                    <option key={c._id || c.name} value={c.name}>{c.name}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -154,12 +184,14 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Expected Course Fee (read-only)</label>
-                <input name="expectedCourseFee" type="text" value="₹0" readOnly className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 bg-slate-50" />
+                <input name="expectedCourseFee" type="text" value={expectedCourseFee} readOnly className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 bg-slate-50" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Priority Level</label>
                 <select name="priorityLevel" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Medium" selected>Medium</option>
+                  <option value="Low">Low</option>
                 </select>
               </div>
             </div>
@@ -194,7 +226,9 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Follow-up Priority</label>
                 <select name="followUpPriority" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Medium" selected>Medium</option>
+                  <option value="Low">Low</option>
                 </select>
               </div>
               <div className="col-span-2">
@@ -206,6 +240,61 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
               <div className="col-span-2">
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Follow-up Notes</label>
                 <textarea name="followUpNotes" placeholder="Discuss fee structure, answer doubts, send brochure, schedule demo class" rows={2} className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 resize-y"></textarea>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 5 */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Section 5: Schedule Demo Class</h4>
+              <label className="flex items-center cursor-pointer">
+                <div className="relative">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only" 
+                    checked={isDemoScheduled}
+                    onChange={(e) => setIsDemoScheduled(e.target.checked)}
+                  />
+                  <div className={`block w-10 h-6 rounded-full transition-colors ${isDemoScheduled ? 'bg-indigo-500' : 'bg-slate-300'}`}></div>
+                  <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${isDemoScheduled ? 'transform translate-x-4' : ''}`}></div>
+                </div>
+                <span className="ml-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest select-none">
+                  {isDemoScheduled ? 'Enabled' : 'Disabled'}
+                </span>
+              </label>
+            </div>
+            
+            <div className={`grid grid-cols-2 gap-4 transition-opacity ${!isDemoScheduled ? 'opacity-50 pointer-events-none' : ''}`}>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Demo Date *</label>
+                <input 
+                  name="demoDate" 
+                  type="date" 
+                  required={isDemoScheduled} 
+                  disabled={!isDemoScheduled}
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:bg-slate-100" 
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Demo Time *</label>
+                <input 
+                  name="demoTime" 
+                  type="time" 
+                  required={isDemoScheduled}
+                  disabled={!isDemoScheduled}
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:bg-slate-100" 
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Demo Notes</label>
+                <textarea 
+                  name="demoNotes" 
+                  disabled={!isDemoScheduled}
+                  placeholder="Any specific topics requested by the student for the demo class..." 
+                  rows={2} 
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 resize-y disabled:bg-slate-100"
+                ></textarea>
               </div>
             </div>
           </div>

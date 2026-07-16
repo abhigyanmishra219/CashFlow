@@ -5,9 +5,11 @@ import React, { useState } from "react";
 import LeadProfile from "@/components/LeadProfile";
 import AdmissionModal from "@/components/AdmissionModal";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
+import { useUser } from "../../../component/context/user-context";
 
 
 export default function AdmissionHub() {
+    const { user } = useUser();
     const [activeTab, setActiveTab] = useState("Enrollment Ledgers");
     const [searchQuery, setSearchQuery] = useState("");
     const [isSearching, setIsSearching] = useState(false);
@@ -20,12 +22,14 @@ export default function AdmissionHub() {
     const [isLoadingAdmissions, setIsLoadingAdmissions] = useState(true);
 
     const fetchAdmissions = async () => {
+        if (!user) return;
         setIsLoadingAdmissions(true);
         try {
             const res = await fetch('/api/admissions');
             const json = await res.json();
             if (json.success) {
-                setAdmissions(json.data);
+                const myAdmissions = json.data.filter((a: any) => (a.counsellor || "").toLowerCase() === (user.name || "").toLowerCase());
+                setAdmissions(myAdmissions);
             }
         } catch (e) {
             console.error(e);
@@ -36,7 +40,7 @@ export default function AdmissionHub() {
 
     React.useEffect(() => {
         fetchAdmissions();
-    }, []);
+    }, [user]);
 
     const today = new Date();
     const todaysAdmissions = admissions.filter((a: any) => new Date(a.createdAt).toDateString() === today.toDateString()).length;
