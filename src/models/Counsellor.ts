@@ -1,31 +1,25 @@
 import mongoose, { Schema } from "mongoose";
 
-const UserSchema = new Schema(
+const CounsellorSchema = new Schema(
   {
-    name: {
+    firstName: {
       type: String,
-      required: [true, "Name is required"],
+      required: [true, "First name is required"],
+      trim: true,
+    },
+    lastName: {
+      type: String,
+      required: [true, "Last name is required"],
       trim: true,
     },
     email: {
       type: String,
-      required: [true, "Email is required"],
+      required: [true, "Corporate email is required"],
       unique: true,
       lowercase: true,
       trim: true,
       match: [/\S+@\S+\.\S+/, "Please enter a valid email address"],
     },
-    password: {
-      type: String,
-      required: [true, "Password is required"],
-      minlength: [6, "Password must be at least 6 characters long"],
-    },
-    role: {
-      type: String,
-      enum: ["super admin", "brand manager", "counsellor"],
-      default: "super admin",
-    },
-    // Counsellor-specific fields (only populated when role is "counsellor")
     phone: {
       type: String,
       trim: true,
@@ -36,14 +30,17 @@ const UserSchema = new Schema(
     },
     brandScope: {
       type: String,
+      required: [true, "Brand scope is required"],
       trim: true,
     },
     joiningDate: {
       type: Date,
+      default: Date.now,
     },
     annualTarget: {
       type: Number,
-      default: 0,
+      required: [true, "Annual target is required"],
+      default: 500000,
     },
     currentRevenue: {
       type: Number,
@@ -53,6 +50,10 @@ const UserSchema = new Schema(
       type: Number,
       default: 0,
     },
+    password: {
+      type: String,
+      required: [true, "Temporary password is required"],
+    },
   },
   {
     timestamps: true,
@@ -60,6 +61,6 @@ const UserSchema = new Schema(
 );
 
 // Prevent compiled model re-definition errors in Next.js development hot-reloads
-const User = mongoose.models.User || mongoose.model("User", UserSchema);
+const Counsellor = mongoose.models.Counsellor || mongoose.model("Counsellor", CounsellorSchema);
 
-export default User;
+export default Counsellor;
