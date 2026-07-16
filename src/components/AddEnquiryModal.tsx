@@ -1,7 +1,10 @@
 "use client";
 
+<<<<<<< HEAD
+import React, { useState } from "react";
+=======
 import React, { useState, useEffect } from "react";
-import { useUser } from "@/app/component/context/user-context";
+>>>>>>> Chaitanya-local
 
 interface AddEnquiryModalProps {
   isOpen: boolean;
@@ -10,58 +13,24 @@ interface AddEnquiryModalProps {
 }
 
 export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnquiryModalProps) {
-  const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-
-  const [advisors, setAdvisors] = useState<string[]>(["Rahul Sharma", "Chaitanya Singhal", "Abhigyan Mishra"]);
-  const [brands, setBrands] = useState<string[]>(["Cadd Mantra"]);
-  const [courses, setCourses] = useState<any[]>([{ name: "AutoCAD", brand: "Cadd Mantra" }]);
-  const [selectedBrand, setSelectedBrand] = useState("Cadd Mantra");
-  const [selectedAdvisor, setSelectedAdvisor] = useState("");
-
-  const leadSources = ["Google Ads", "Meta Ads", "Website", "Seminar", "Hoarding", "Reference", "Paper Ads", "Internet Search", "Direct Walkin", "Call on Database", "Other"];
+<<<<<<< HEAD
+=======
+  const [counsellors, setCounsellors] = useState<any[]>([]);
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        // Fetch counsellors
-        const cRes = await fetch("/api/counsellors");
-        const cData = await cRes.json();
-        if (cData.success && cData.counsellors && cData.counsellors.length > 0) {
-          const names = cData.counsellors.map((c: any) => c.name);
-          setAdvisors(names);
-        }
-
-        // Fetch courses
-        const coRes = await fetch("/api/courses");
-        const coData = await coRes.json();
-        if (coData.success && coData.data && coData.data.length > 0) {
-          setCourses(coData.data);
-          const uniqueBrands = Array.from(new Set(coData.data.map((c: any) => c.brand).filter(Boolean))) as string[];
-          setBrands(uniqueBrands);
-          if (uniqueBrands.length > 0) {
-            setSelectedBrand(uniqueBrands[0]);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load dropdown data in AddEnquiryModal:", err);
-      }
-    }
     if (isOpen) {
-      loadData();
+      fetch("/api/counsellors")
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setCounsellors(data.counsellors);
+          }
+        })
+        .catch(console.error);
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    if (user) {
-      if (user.role === "counsellor") {
-        setSelectedAdvisor(user.name);
-      } else if (advisors.length > 0 && !selectedAdvisor) {
-        setSelectedAdvisor(advisors[0]);
-      }
-    }
-  }, [user, advisors]);
+>>>>>>> Chaitanya-local
 
   if (!isOpen) return null;
 
@@ -155,30 +124,43 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Target Brand *</label>
-                <select name="targetBrand" required value={selectedBrand} onChange={(e) => setSelectedBrand(e.target.value)} className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                  {brands.map(b => <option key={b} value={b}>{b}</option>)}
+                <select name="targetBrand" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
+                  <option value="Cadd Mantra">Cadd Mantra</option>
                 </select>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Target Course *</label>
                 <select name="targetCourse" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
                   <option value="">-- Select a Course --</option>
-                  {courses
-                    .filter(c => !selectedBrand || c.brand === selectedBrand)
-                    .map(c => <option key={c._id || c.name} value={c.name}>{c.name}</option>)
-                  }
+                  <option value="AutoCAD">AutoCAD</option>
                 </select>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Assigned CRM Advisor *</label>
-                <select name="assignedCrmAdvisor" required value={selectedAdvisor} onChange={(e) => setSelectedAdvisor(e.target.value)} className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                  {advisors.map(a => <option key={a} value={a}>{a}</option>)}
+                <select name="assignedCrmAdvisor" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
+<<<<<<< HEAD
+                  <option value="Rahul Sharma">Rahul Sharma</option>
+=======
+                  <option value="">-- Select Advisor --</option>
+                  {counsellors.map(c => (
+                    <option key={c._id} value={c.name}>{c.name}</option>
+                  ))}
+>>>>>>> Chaitanya-local
                 </select>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Lead Source</label>
                 <select name="leadSource" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                  {leadSources.map(s => <option key={s} value={s}>{s}</option>)}
+                  <option value="Google Ads">Google Ads</option>
+                  <option value="Meta Ads">Meta Ads</option>
+                  <option value="Website">Website</option>
+                  <option value="Seminar">Seminar</option>
+                  <option value="Hoarding">Hoarding</option>
+                  <option value="Reference">Reference</option>
+                  <option value="Paper Ads">Paper Ads</option>
+                  <option value="Internet Search">Internet Search</option>
+                  <option value="Direct Walkin">Direct Walkin</option>
+                  <option value="Call on Database">Call on Database</option>
                 </select>
               </div>
               <div>

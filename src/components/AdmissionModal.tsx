@@ -11,7 +11,10 @@ interface AdmissionModalProps {
 
 export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: AdmissionModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+<<<<<<< HEAD
+=======
   const [courses, setCourses] = useState<any[]>([]);
+>>>>>>> Chaitanya-local
   
   // 1. Student Information
   const [fullName, setFullName] = useState(lead?.studentFullName || "");
@@ -31,7 +34,11 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
   const [course, setCourse] = useState(lead?.targetCourse || "");
   const [batch, setBatch] = useState("");
   const [duration, setDuration] = useState("");
+<<<<<<< HEAD
+  const [startDate, setStartDate] = useState("");
+=======
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+>>>>>>> Chaitanya-local
   const [academicYear, setAcademicYear] = useState(new Date().getFullYear() + " - " + (new Date().getFullYear() + 1).toString().slice(2));
   const [courseFee, setCourseFee] = useState(Number(lead?.expectedCourseFee?.replace(/[^0-9]/g, '')) || 0);
   const [admissionDate, setAdmissionDate] = useState(new Date().toISOString().split("T")[0]);
@@ -68,6 +75,9 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
     }
   }, [remainingBalance, numInstallments, hasEmi]);
 
+<<<<<<< HEAD
+  const handleGenerateAdmission = async () => {
+=======
   useEffect(() => {
     if (isOpen) {
       fetch("/api/courses")
@@ -124,6 +134,8 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
       alert("Please fill in all required fields (Full Name, Mobile, City, State, Pincode, Counsellor, Course, Batch, Duration, Start Date, Academic Year, Admission Date, and Company Assigned).");
       return;
     }
+
+>>>>>>> Chaitanya-local
     setIsSubmitting(true);
     try {
       const payload = {
@@ -295,6 +307,9 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <div className="flex flex-col gap-1.5 md:col-span-2">
                     <label className="text-xs font-bold text-slate-500">Course <span className="text-rose-500">*</span></label>
+<<<<<<< HEAD
+                    <input type="text" value={course} onChange={e=>setCourse(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
+=======
                     <select 
                       value={course} 
                       onChange={e => {
@@ -317,6 +332,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                         <option key={c._id} value={c.name}>{c.name}</option>
                       ))}
                     </select>
+>>>>>>> Chaitanya-local
                   </div>
                   <div className="flex flex-col gap-1.5 md:col-span-2">
                     <label className="text-xs font-bold text-slate-500">Batch <span className="text-rose-500">*</span></label>
