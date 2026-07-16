@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useUser } from "@/app/component/context/user-context";
 
 interface AddEnquiryModalProps {
   isOpen: boolean;
@@ -9,7 +10,57 @@ interface AddEnquiryModalProps {
 }
 
 export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnquiryModalProps) {
+  const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [advisors, setAdvisors] = useState<string[]>(["Rahul Sharma", "Chaitanya Singhal", "Abhigyan Mishra"]);
+  const [brands, setBrands] = useState<string[]>(["Cadd Mantra"]);
+  const [courses, setCourses] = useState<any[]>([{ name: "AutoCAD", brand: "Cadd Mantra" }]);
+  const [selectedBrand, setSelectedBrand] = useState("Cadd Mantra");
+  const [selectedAdvisor, setSelectedAdvisor] = useState("");
+
+  const leadSources = ["Google Ads", "Google Search", "Website", "Walk-in", "Referral", "Instagram", "Facebook", "Other"];
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        // Fetch counsellors
+        const cRes = await fetch("/api/counsellors");
+        const cData = await cRes.json();
+        if (cData.success && cData.counsellors && cData.counsellors.length > 0) {
+          const names = cData.counsellors.map((c: any) => c.name);
+          setAdvisors(names);
+        }
+
+        // Fetch courses
+        const coRes = await fetch("/api/courses");
+        const coData = await coRes.json();
+        if (coData.success && coData.data && coData.data.length > 0) {
+          setCourses(coData.data);
+          const uniqueBrands = Array.from(new Set(coData.data.map((c: any) => c.brand).filter(Boolean))) as string[];
+          setBrands(uniqueBrands);
+          if (uniqueBrands.length > 0) {
+            setSelectedBrand(uniqueBrands[0]);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load dropdown data in AddEnquiryModal:", err);
+      }
+    }
+    if (isOpen) {
+      loadData();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (user) {
+      if (user.role === "counsellor") {
+        setSelectedAdvisor(user.name);
+      } else if (advisors.length > 0 && !selectedAdvisor) {
+        setSelectedAdvisor(advisors[0]);
+      }
+    }
+  }, [user, advisors]);
 
   if (!isOpen) return null;
 
@@ -103,27 +154,30 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Target Brand *</label>
-                <select name="targetBrand" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                  <option value="Cadd Mantra">Cadd Mantra</option>
+                <select name="targetBrand" required value={selectedBrand} onChange={(e) => setSelectedBrand(e.target.value)} className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
+                  {brands.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Target Course *</label>
                 <select name="targetCourse" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
                   <option value="">-- Select a Course --</option>
-                  <option value="AutoCAD">AutoCAD</option>
+                  {courses
+                    .filter(c => !selectedBrand || c.brand === selectedBrand)
+                    .map(c => <option key={c._id || c.name} value={c.name}>{c.name}</option>)
+                  }
                 </select>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Assigned CRM Advisor *</label>
-                <select name="assignedCrmAdvisor" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                  <option value="Rahul Sharma">Rahul Sharma</option>
+                <select name="assignedCrmAdvisor" required value={selectedAdvisor} onChange={(e) => setSelectedAdvisor(e.target.value)} className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
+                  {advisors.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Lead Source</label>
                 <select name="leadSource" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                  <option value="walkin">walkins</option>
+                  {leadSources.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
