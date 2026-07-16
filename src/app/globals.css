@@ -1,1 +1,4 @@
 @import "tailwindcss";
+
+/* Disable system dark mode by requiring a specific class that we never add */
+@custom-variant dark (&:is(.dark));

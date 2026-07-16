@@ -86,7 +86,7 @@ export default function CourseDisplay() {
 
   return (
     <div className="space-y-6 flex-1 flex flex-col justify-between">
-      
+
       {/* Header bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-start gap-3">
@@ -279,18 +279,6 @@ export default function CourseDisplay() {
         </div>
       </div>
 
-      {/* Footer bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between text-[10px] text-slate-400 font-bold border-t border-slate-200/60 pt-4 shrink-0 select-none">
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-purple-500"></span>DB Connection: Compliant</span>
-          <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>AI Assist: Connected</span>
-        </div>
-        <div className="flex items-center gap-2 mt-2 sm:mt-0">
-          <span>Active Session Secured</span>
-          <span>|</span>
-          <span className="text-indigo-600">CoachFlow Enterprise v1.2</span>
-        </div>
-      </div>
 
       {/* Floating Plus button */}
       <div className="fixed bottom-6 right-6">

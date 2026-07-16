@@ -21,10 +21,10 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export default function UserProvider({
   children,
-  user: initialUser,
+  user: initialUser = null,
 }: {
   children: ReactNode;
-  user: User | null;
+  user?: User | null;
 }) {
   const [user, setUser] = useState<User | null>(initialUser);
   const [loading] = useState(false);
