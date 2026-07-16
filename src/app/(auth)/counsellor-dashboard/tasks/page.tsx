@@ -1,11 +1,53 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useUser } from "../../../component/context/user-context";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
 
 export default function CounsellorTasksPage() {
   const { user, logout } = useUser();
+  const [enquiries, setEnquiries] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [checklistFilter, setChecklistFilter] = useState("Show Pending Checklist");
+  const [priorityFilter, setPriorityFilter] = useState("All Priorities");
+  const [contactTypeFilter, setContactTypeFilter] = useState("All Contact Types");
+
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/enquiries")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          const myEnquiries = (data.data || []).filter(
+            (e: any) => (e.assignedCrmAdvisor || "").toLowerCase() === (user.name || "").toLowerCase()
+          );
+          setEnquiries(myEnquiries);
+        }
+      });
+  }, [user]);
+
+  const filteredEnquiries = enquiries.filter((enq) => {
+    const matchesSearch = searchQuery === "" || 
+      (enq.studentFullName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (enq.primaryPhoneMobile || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (enq.targetCourse || "").toLowerCase().includes(searchQuery.toLowerCase());
+      
+    const matchesPriority = priorityFilter === "All Priorities" || enq.priorityLevel === priorityFilter;
+    
+    let matchesChecklist = true;
+    if (checklistFilter === "Show Pending Checklist") {
+      matchesChecklist = enq.status !== "Admitted";
+    } else if (checklistFilter === "Show Completed") {
+      matchesChecklist = enq.status === "Admitted";
+    }
+
+    let matchesContact = true;
+    if (contactTypeFilter !== "All Contact Types") {
+      matchesContact = (enq.followUps || []).some((f: any) => f.typeOfContact === contactTypeFilter);
+    }
+
+    return matchesSearch && matchesPriority && matchesChecklist && matchesContact;
+  });
 
   if (!user) return null;
 
@@ -75,12 +117,18 @@ export default function CounsellorTasksPage() {
                 type="text"
                 placeholder="Search checklist tasks by student name or details..."
                 className="w-full pl-12 pr-4 py-3 bg-[#f8fafc] border border-slate-200/80 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold text-slate-700"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="relative">
-                <select className="w-full appearance-none pl-4 pr-10 py-2.5 bg-white border border-slate-200/80 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                <select 
+                  className="w-full appearance-none pl-4 pr-10 py-2.5 bg-white border border-slate-200/80 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  value={checklistFilter}
+                  onChange={(e) => setChecklistFilter(e.target.value)}
+                >
                   <option>Show Pending Checklist</option>
                   <option>Show Completed</option>
                   <option>Show All</option>
@@ -90,7 +138,11 @@ export default function CounsellorTasksPage() {
                 </div>
               </div>
               <div className="relative">
-                <select className="w-full appearance-none pl-4 pr-10 py-2.5 bg-white border border-slate-200/80 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                <select 
+                  className="w-full appearance-none pl-4 pr-10 py-2.5 bg-white border border-slate-200/80 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  value={priorityFilter}
+                  onChange={(e) => setPriorityFilter(e.target.value)}
+                >
                   <option>All Priorities</option>
                   <option>High</option>
                   <option>Medium</option>
@@ -101,7 +153,11 @@ export default function CounsellorTasksPage() {
                 </div>
               </div>
               <div className="relative">
-                <select className="w-full appearance-none pl-4 pr-10 py-2.5 bg-white border border-slate-200/80 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                <select 
+                  className="w-full appearance-none pl-4 pr-10 py-2.5 bg-white border border-slate-200/80 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  value={contactTypeFilter}
+                  onChange={(e) => setContactTypeFilter(e.target.value)}
+                >
                   <option>All Contact Types</option>
                   <option>Phone Call</option>
                   <option>Email</option>
@@ -115,16 +171,46 @@ export default function CounsellorTasksPage() {
           </div>
 
           <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm min-h-[300px] flex flex-col">
-            <h3 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-10">Checklist Tasks (0)</h3>
+            <h3 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-6">Checklist Tasks ({filteredEnquiries.length})</h3>
             
-            <div className="flex-1 flex flex-col items-center justify-center text-center -mt-10">
-              <div className="mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-10 h-10 text-slate-300">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+            {filteredEnquiries.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center -mt-10">
+                <div className="mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-10 h-10 text-slate-300">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p className="text-sm font-bold text-slate-400">All tasks completed in this query.</p>
               </div>
-              <p className="text-sm font-bold text-slate-400">All tasks completed in this query.</p>
-            </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredEnquiries.map((enq) => (
+                  <div key={enq._id} className="flex items-center justify-between p-4 border border-slate-100 rounded-xl hover:shadow-md transition-shadow group">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden shrink-0">
+                        <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(enq.studentFullName || 'U')}&background=f1f5f9&color=64748b`} alt={enq.studentFullName} className="h-full w-full" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{enq.studentFullName}</p>
+                        <p className="text-xs text-slate-500 font-semibold mt-0.5">{enq.targetCourse || 'N/A'} • {enq.primaryPhoneMobile}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-[10px] font-bold px-2 py-1 rounded border ${
+                        enq.priorityLevel === 'High' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                        enq.priorityLevel === 'Low' ? 'bg-slate-50 text-slate-600 border-slate-200' :
+                        'bg-amber-50 text-amber-600 border-amber-100'
+                      }`}>
+                        {enq.priorityLevel || 'Medium'}
+                      </span>
+                      <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 rounded px-2 py-1">
+                        {enq.status || 'New'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
         </div>

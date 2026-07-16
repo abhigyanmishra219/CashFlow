@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useUser } from "../../../component/context/user-context";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
 
@@ -9,6 +9,23 @@ export default function CounsellorCalendarPage() {
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState<Date>(today);
+
+  const [enquiries, setEnquiries] = useState<any[]>([]);
+  const [hoveredEnq, setHoveredEnq] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/enquiries")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          const myEnquiries = (data.data || []).filter(
+            (e: any) => (e.assignedCrmAdvisor || "").toLowerCase() === (user.name || "").toLowerCase()
+          );
+          setEnquiries(myEnquiries);
+        }
+      });
+  }, [user]);
 
   if (!user) return null;
 
@@ -44,6 +61,20 @@ export default function CounsellorCalendarPage() {
   const isSelected = (d: number) => {
     return d === selectedDate.getDate() && month === selectedDate.getMonth() && year === selectedDate.getFullYear();
   };
+
+  const selYear = selectedDate.getFullYear();
+  const selMonth = String(selectedDate.getMonth() + 1).padStart(2, '0');
+  const selDay = String(selectedDate.getDate()).padStart(2, '0');
+  const selectedDateStr = `${selYear}-${selMonth}-${selDay}`;
+
+  const dateEnquiries = enquiries.filter(enq => {
+    const createdAtStr = enq.createdAt ? new Date(enq.createdAt).toISOString().split("T")[0] : "";
+    if (createdAtStr === selectedDateStr) return true;
+    if (enq.followUps && enq.followUps.length > 0) {
+      return enq.followUps.some((f: any) => f.date === selectedDateStr);
+    }
+    return false;
+  });
 
   return (
     <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
@@ -175,10 +206,62 @@ export default function CounsellorCalendarPage() {
                 </span>
               </div>
               
-              <div className="flex-1 flex flex-col items-center justify-center text-center -mt-10">
-                <p className="text-sm font-semibold text-slate-400 max-w-[200px]">
-                  No follow-ups or reminders scheduled for this date.
-                </p>
+              <div className="flex-1 flex flex-col relative mt-2">
+                {dateEnquiries.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center">
+                    <p className="text-sm font-semibold text-slate-400 max-w-[200px]">
+                      No follow-ups or reminders scheduled for this date.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 relative">
+                    {dateEnquiries.map((enq) => (
+                      <div 
+                        key={enq._id} 
+                        className="p-3 border border-slate-100 rounded-xl hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer relative"
+                        onMouseEnter={() => setHoveredEnq(enq._id)}
+                        onMouseLeave={() => setHoveredEnq(null)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0">
+                            {enq.studentFullName ? enq.studentFullName.charAt(0).toUpperCase() : 'U'}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-800">{enq.studentFullName}</p>
+                            <p className="text-[10px] font-semibold text-slate-500 mt-0.5">{enq.status} • {enq.priorityLevel || 'Medium'} Priority</p>
+                          </div>
+                        </div>
+
+                        {/* Hover Dialog */}
+                        {hoveredEnq === enq._id && (
+                          <div className="absolute top-0 right-full mr-4 w-64 bg-white border border-slate-200 shadow-xl rounded-xl p-4 z-50">
+                            <h4 className="text-sm font-bold text-slate-800 mb-3 border-b border-slate-100 pb-2">Lead Information</h4>
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-500">Phone:</span>
+                                <span className="font-semibold text-slate-800">{enq.primaryPhoneMobile}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-500">Email:</span>
+                                <span className="font-semibold text-slate-800 max-w-[120px] truncate">{enq.emailAddress || 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-500">Course:</span>
+                                <span className="font-semibold text-slate-800">{enq.targetCourse}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-500">Fee:</span>
+                                <span className="font-semibold text-emerald-600">{enq.expectedCourseFee}</span>
+                              </div>
+                            </div>
+                            {/* Little triangle pointer */}
+                            <div className="absolute top-6 -right-1.5 w-3 h-3 bg-white border-r border-t border-slate-200 rotate-45"></div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
