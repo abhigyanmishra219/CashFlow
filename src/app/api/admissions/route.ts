@@ -29,6 +29,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
+<<<<<<< HEAD
+export async function GET() {
+  try {
+    await dbConnect();
+    const admissions = await Admission.find({}).sort({ createdAt: -1 });
+=======
 export async function GET(req: Request) {
   try {
     await dbConnect();
@@ -52,6 +58,7 @@ export async function GET(req: Request) {
     }
 
     const admissions = await Admission.find(query).sort({ createdAt: -1 });
+>>>>>>> Chaitanya-local
     return NextResponse.json({ success: true, data: admissions });
   } catch (error: any) {
     console.error("Fetch Admissions Error:", error);

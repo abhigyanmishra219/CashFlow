@@ -9,7 +9,11 @@ export default function AdmissionHub() {
   const [activeTab, setActiveTab] = useState("Enrollment Ledgers");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+<<<<<<< HEAD
+  const [searchResult, setSearchResult] = useState<{ stage: string, data: any } | null>(null);
+=======
   const [searchResult, setSearchResult] = useState<{stage: string, data: any} | null>(null);
+>>>>>>> Chaitanya-local
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [openTaskModalOnLoad, setOpenTaskModalOnLoad] = useState(false);
   const [isAdmissionModalOpen, setIsAdmissionModalOpen] = useState(false);
@@ -38,12 +42,20 @@ export default function AdmissionHub() {
 
   const today = new Date();
   const todaysAdmissions = admissions.filter((a: any) => new Date(a.createdAt).toDateString() === today.toDateString()).length;
+<<<<<<< HEAD
+
+=======
   
+>>>>>>> Chaitanya-local
   const monthlyAdmissions = admissions.filter((a: any) => {
     const d = new Date(a.createdAt);
     return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
   }).length;
+<<<<<<< HEAD
+
+=======
   
+>>>>>>> Chaitanya-local
   // Mock conversion calculation based on admissions length (e.g., assuming 100 leads base)
   const salesConversion = Math.min(Math.round((admissions.length / (admissions.length + 50)) * 100), 100);
 
@@ -111,7 +123,11 @@ export default function AdmissionHub() {
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all placeholder:text-slate-400"
                     />
                   </div>
+<<<<<<< HEAD
+                  <button
+=======
                   <button 
+>>>>>>> Chaitanya-local
                     onClick={handleSearch}
                     disabled={isSearching}
                     className="bg-indigo-400 hover:bg-indigo-500 text-white text-sm font-bold px-8 py-3 rounded-xl transition-colors shadow-sm disabled:opacity-50"
@@ -175,7 +191,11 @@ export default function AdmissionHub() {
                             </div>
                           </div>
                         </div>
+<<<<<<< HEAD
+
+=======
                         
+>>>>>>> Chaitanya-local
                         <div className={c("border-amber-100", "border-emerald-100") + " grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-white/60 rounded-xl border"}>
                           <div>
                             <p className={c("text-amber-600/70", "text-emerald-600/70") + " text-[10px] font-bold uppercase"}>Student Name</p>
@@ -508,6 +528,9 @@ export default function AdmissionHub() {
         </div>
 
         {/* Footer */}
+<<<<<<< HEAD
+
+=======
         <div className="fixed bottom-0 left-64 right-0 h-10 bg-white border-t border-slate-200 flex items-center justify-between px-6 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)]">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
@@ -524,6 +547,7 @@ export default function AdmissionHub() {
             <span className="text-[10px] font-extrabold text-indigo-600">CoachFlow Enterprise v1.2</span>
           </div>
         </div>
+>>>>>>> Chaitanya-local
 
         {/* FAB */}
         <button className="fixed bottom-16 right-8 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 rounded-full shadow-lg shadow-indigo-600/30 flex items-center justify-center text-white transition-transform hover:scale-105 active:scale-95 z-20">
@@ -533,9 +557,15 @@ export default function AdmissionHub() {
         </button>
       </div>
 
+<<<<<<< HEAD
+      <LeadProfile
+        lead={selectedLead}
+        onClose={() => { setSelectedLead(null); setOpenTaskModalOnLoad(false); }}
+=======
       <LeadProfile 
         lead={selectedLead} 
         onClose={() => { setSelectedLead(null); setOpenTaskModalOnLoad(false); }} 
+>>>>>>> Chaitanya-local
         onSuccess={() => handleSearch()}
         defaultOpenTaskModal={openTaskModalOnLoad}
       />

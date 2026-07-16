@@ -13,13 +13,14 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
   const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+
   const [advisors, setAdvisors] = useState<string[]>(["Rahul Sharma", "Chaitanya Singhal", "Abhigyan Mishra"]);
   const [brands, setBrands] = useState<string[]>(["Cadd Mantra"]);
   const [courses, setCourses] = useState<any[]>([{ name: "AutoCAD", brand: "Cadd Mantra" }]);
   const [selectedBrand, setSelectedBrand] = useState("Cadd Mantra");
   const [selectedAdvisor, setSelectedAdvisor] = useState("");
 
-  const leadSources = ["Google Ads", "Google Search", "Website", "Walk-in", "Referral", "Instagram", "Facebook", "Other"];
+  const leadSources = ["Google Ads", "Meta Ads", "Website", "Seminar", "Hoarding", "Reference", "Paper Ads", "Internet Search", "Direct Walkin", "Call on Database", "Other"];
 
   useEffect(() => {
     async function loadData() {
