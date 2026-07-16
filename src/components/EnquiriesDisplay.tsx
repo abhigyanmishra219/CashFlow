@@ -268,20 +268,7 @@ export default function EnquiriesDisplay() {
             </select>
             <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-600 focus:outline-none">
               <option value="">All Sources</option>
-<<<<<<< HEAD
-              <option value="Google Ads">Google Ads</option>
-              <option value="Meta Ads">Meta Ads</option>
-              <option value="Website">Website</option>
-              <option value="Seminar">Seminar</option>
-              <option value="Hoarding">Hoarding</option>
-              <option value="Reference">Reference</option>
-              <option value="Paper Ads">Paper Ads</option>
-              <option value="Internet Search">Internet Search</option>
-              <option value="Direct Walkin">Direct Walkin</option>
-              <option value="Call on Database">Call on Database</option>
-=======
               {uniqueSources.map(s => <option key={s as string} value={s as string}>{s as string}</option>)}
->>>>>>> Chaitanya-local
             </select>
             <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-600 focus:outline-none">
               <option value="">All Priorities</option>

@@ -1,10 +1,6 @@
 "use client";
 
-<<<<<<< HEAD
-import React, { useState } from "react";
-=======
 import React, { useState, useEffect } from "react";
->>>>>>> Chaitanya-local
 
 interface AddEnquiryModalProps {
   isOpen: boolean;
@@ -14,8 +10,6 @@ interface AddEnquiryModalProps {
 
 export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnquiryModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-<<<<<<< HEAD
-=======
   const [counsellors, setCounsellors] = useState<any[]>([]);
 
   useEffect(() => {
@@ -30,7 +24,6 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
         .catch(console.error);
     }
   }, [isOpen]);
->>>>>>> Chaitanya-local
 
   if (!isOpen) return null;
 
@@ -138,14 +131,10 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Assigned CRM Advisor *</label>
                 <select name="assignedCrmAdvisor" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-<<<<<<< HEAD
-                  <option value="Rahul Sharma">Rahul Sharma</option>
-=======
                   <option value="">-- Select Advisor --</option>
                   {counsellors.map(c => (
                     <option key={c._id} value={c.name}>{c.name}</option>
                   ))}
->>>>>>> Chaitanya-local
                 </select>
               </div>
               <div>
