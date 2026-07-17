@@ -61,6 +61,30 @@ export default function FeeCollectionPage() {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isCustomEmi, setIsCustomEmi] = useState(false);
+  const [selectedEmiIndices, setSelectedEmiIndices] = useState<number[]>([]);
+
+  const [editingEmiIndex, setEditingEmiIndex] = useState<number | null>(null);
+  const [editEmiAmount, setEditEmiAmount] = useState<number>(0);
+  const [editEmiDate, setEditEmiDate] = useState<string>("");
+
+  const handleEditEmi = (index: number, currentAmount: number, currentDate: Date) => {
+    if (!isCustomEmi || index === (selectedStudent?.numInstallments || 4) - 1) return;
+    setEditingEmiIndex(index);
+    setEditEmiAmount(currentAmount);
+    setEditEmiDate(currentDate.toISOString().split("T")[0]);
+  };
+
+  const handleEmiCheckbox = (index: number, checked: boolean, dueAmount: number) => {
+    const currentAmount = parseFloat(amountReceived || "0");
+    if (checked) {
+      setSelectedEmiIndices(prev => [...prev, index]);
+      setAmountReceived((currentAmount + dueAmount).toString());
+    } else {
+      setSelectedEmiIndices(prev => prev.filter(i => i !== index));
+      setAmountReceived(Math.max(0, currentAmount - dueAmount).toString());
+    }
+  };
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -254,38 +278,55 @@ export default function FeeCollectionPage() {
     }
   };
 
-  // Installment plan calculator (mock & dynamic)
+  // Installment plan calculator (dynamic)
   const generateInstallments = () => {
     if (!selectedStudent) return [];
     const totalInst = selectedStudent.numInstallments || 4;
-    const baseAmount = Math.floor(selectedStudent.finalFee / totalInst);
     
-    // Sum of actual payments
-    let runningPaid = totalPaid;
+    // Calculate how much of the fee is actually put into EMIs
+    const initialPayment = selectedStudent.amountReceivedToday || 0;
+    const emiPrincipal = selectedStudent.finalFee - initialPayment;
+    
+    // Base amount is either from DB or calculated
+    const baseAmount = selectedStudent.installmentAmount || Math.floor(emiPrincipal / totalInst);
+    
+    // Amount paid specifically towards EMIs (total paid minus the downpayment)
+    let runningPaid = Math.max(0, totalPaid - initialPayment);
+    
     const installments = [];
-    const baseDate = new Date(selectedStudent.admissionDate || "2026-05-16");
+    const baseDate = new Date(selectedStudent.admissionDate || new Date());
+    // Start EMIs 1 month after admission
+    baseDate.setMonth(baseDate.getMonth() + 1);
 
     for (let i = 1; i <= totalInst; i++) {
-      const instAmount = i === totalInst 
-        ? selectedStudent.finalFee - baseAmount * (totalInst - 1) 
+      let instAmount = i === totalInst 
+        ? emiPrincipal - baseAmount * (totalInst - 1) 
         : baseAmount;
       
-      const dueDate = new Date(baseDate);
+      let dueDate = new Date(baseDate);
       dueDate.setMonth(baseDate.getMonth() + (i - 1));
+      
+      if (selectedStudent.customEmiPlan && selectedStudent.customEmiPlan[i - 1]) {
+        instAmount = selectedStudent.customEmiPlan[i - 1].amount;
+        dueDate = new Date(selectedStudent.customEmiPlan[i - 1].dueDate);
+      }
       
       let status = "Pending";
       let statusClass = "text-slate-400 bg-slate-100 border-slate-200";
       let bulletClass = "bg-slate-200 border-slate-300";
+      let dueAmount = instAmount;
 
       if (runningPaid >= instAmount) {
         status = "Paid";
         statusClass = "text-emerald-600 bg-emerald-50 border-emerald-100";
         bulletClass = "bg-emerald-500 border-emerald-600";
         runningPaid -= instAmount;
+        dueAmount = 0;
       } else if (runningPaid > 0) {
         status = "Partial";
         statusClass = "text-amber-600 bg-amber-50 border-amber-100";
         bulletClass = "bg-amber-500 border-amber-600";
+        dueAmount = instAmount - runningPaid;
         runningPaid = 0;
       }
 
@@ -298,7 +339,9 @@ export default function FeeCollectionPage() {
       installments.push({
         num: `${i}${i === 1 ? "st" : i === 2 ? "nd" : i === 3 ? "rd" : "th"} Installment`,
         amount: instAmount,
+        dueAmount,
         dateText: status === "Paid" ? `Paid on ${formattedDueDate}` : `Due on ${formattedDueDate}`,
+        rawDate: dueDate,
         status,
         statusClass,
         bulletClass,
@@ -307,6 +350,49 @@ export default function FeeCollectionPage() {
 
     return installments;
   };
+
+  const handleSaveEmiEdit = async () => {
+    if (editingEmiIndex === null || !selectedStudent) return;
+    
+    const currentPlan = generateInstallments();
+    const originalAmount = currentPlan[editingEmiIndex].amount;
+    const diff = originalAmount - editEmiAmount;
+    
+    const remainingEmisCount = currentPlan.length - 1 - editingEmiIndex;
+    if (remainingEmisCount <= 0) return;
+    
+    const newCustomPlan = currentPlan.map((inst) => ({
+       dueDate: inst.rawDate,
+       amount: inst.amount
+    }));
+    
+    newCustomPlan[editingEmiIndex].dueDate = new Date(editEmiDate);
+    newCustomPlan[editingEmiIndex].amount = editEmiAmount;
+    
+    const roundedDiffPerRemaining = Math.round(diff / remainingEmisCount);
+    let appliedDiff = 0;
+    
+    for (let i = editingEmiIndex + 1; i < newCustomPlan.length - 1; i++) {
+        newCustomPlan[i].amount += roundedDiffPerRemaining;
+        appliedDiff += roundedDiffPerRemaining;
+    }
+    
+    newCustomPlan[newCustomPlan.length - 1].amount += (diff - appliedDiff);
+    
+    setSelectedStudent(prev => ({ ...prev, customEmiPlan: newCustomPlan }));
+    setEditingEmiIndex(null);
+    
+    try {
+      await fetch("/api/admissions/custom-emi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: selectedStudent._id, customEmiPlan: newCustomPlan })
+      });
+    } catch(e) {
+      console.error(e);
+    }
+  };
+
 
   const installments = generateInstallments();
 
@@ -738,9 +824,23 @@ export default function FeeCollectionPage() {
 
                 {/* Installment Plan */}
                 <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4">
-                  <h3 className="text-xs font-extrabold text-slate-800 flex items-center gap-2 border-b border-slate-50 pb-2">
-                    📅 Installment Plan
-                  </h3>
+                  <div className="flex items-center justify-between border-b border-slate-50 pb-2">
+                    <h3 className="text-xs font-extrabold text-slate-800 flex items-center gap-2">
+                      📅 Installment Plan
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Customize EMI</span>
+                      <button 
+                        onClick={() => {
+                          setIsCustomEmi(!isCustomEmi);
+                          if (isCustomEmi) setSelectedEmiIndices([]); // clear selection if toggled off
+                        }}
+                        className={`w-8 h-4 rounded-full relative transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20 ${isCustomEmi ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${isCustomEmi ? 'translate-x-4' : 'translate-x-0'}`}></span>
+                      </button>
+                    </div>
+                  </div>
                   
                   {/* Stepper list */}
                   <div className="relative pl-6 space-y-5">
@@ -752,17 +852,37 @@ export default function FeeCollectionPage() {
                         {/* Stepper node bullet */}
                         <div className={`absolute -left-5.5 mt-1 h-2.5 w-2.5 rounded-full border-2 border-white ${inst.bulletClass}`}></div>
 
-                        <div className="space-y-0.5 pr-2">
-                          <span className="block text-slate-800 leading-none">{inst.num}</span>
+                        <div 
+                          className={`space-y-0.5 pr-2 ${isCustomEmi && index !== (selectedStudent?.numInstallments || 4) - 1 && inst.status !== 'Paid' ? 'cursor-pointer hover:bg-slate-50 p-1 -m-1 rounded border border-dashed border-slate-300' : ''}`}
+                          onClick={() => {
+                            if (inst.status !== 'Paid') {
+                              handleEditEmi(index, inst.amount, inst.rawDate);
+                            }
+                          }}
+                        >
+                          <span className="block text-slate-800 leading-none">{inst.num} {isCustomEmi && index !== (selectedStudent?.numInstallments || 4) - 1 && inst.status !== 'Paid' && '✏️'}</span>
                           <span className="block text-[9px] text-slate-400 font-semibold leading-none">{inst.dateText}</span>
                         </div>
 
-                        <div className="text-right space-y-1">
+                        <div className="flex-1"></div>
+
+                        <div className="text-right space-y-1 pr-2">
                           <span className="block text-slate-700 leading-none">₹{inst.amount.toLocaleString("en-IN")}</span>
-                          <span className={`inline-block text-[8px] font-extrabold border rounded-md px-1.5 py-0.2 uppercase leading-none ${inst.statusClass}`}>
-                            {inst.status}
+                          <span className={`inline-block text-[8px] font-extrabold border rounded-md px-1.5 py-0.2 uppercase leading-none ${selectedEmiIndices.includes(index) ? "text-emerald-600 bg-emerald-50 border-emerald-100" : inst.statusClass}`}>
+                            {selectedEmiIndices.includes(index) ? "Paid" : inst.status}
                           </span>
                         </div>
+                        
+                        {inst.status !== "Paid" && (
+                           <div className="flex items-center h-full pt-1">
+                             <input 
+                               type="checkbox" 
+                               checked={selectedEmiIndices.includes(index)}
+                               onChange={(e) => handleEmiCheckbox(index, e.target.checked, inst.dueAmount)}
+                               className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                             />
+                           </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -848,7 +968,7 @@ export default function FeeCollectionPage() {
                                 ? "bg-amber-50 text-amber-600 border-amber-100" 
                                 : "bg-emerald-50 text-emerald-600 border-emerald-100"
                             }`}>
-                              {student.remainingBalance > 0 ? "Due Balance" : "Fully Paid"}
+                              {(student.remainingBalance || 0) > 0 ? "Due Balance" : "Fully Paid"}
                             </span>
                           </div>
                           <div>
@@ -862,8 +982,8 @@ export default function FeeCollectionPage() {
                         <div className="border-t border-slate-100 pt-3 flex justify-between items-center text-xs font-bold">
                           <div>
                             <span className="block text-[8px] text-slate-400 font-bold uppercase tracking-wider">Remaining Due</span>
-                            <span className={student.remainingBalance > 0 ? "text-rose-500" : "text-emerald-600"}>
-                              ₹{student.remainingBalance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                            <span className={(student.remainingBalance || 0) > 0 ? "text-rose-500" : "text-emerald-600"}>
+                              ₹{(student.remainingBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                             </span>
                           </div>
                           <span className="text-[10px] text-indigo-600 group-hover:translate-x-1 transition-transform">
@@ -1139,6 +1259,63 @@ export default function FeeCollectionPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Edit EMI Modal */}
+      {editingEmiIndex !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden border border-slate-200">
+            <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-extrabold text-slate-800 text-sm">Customize Installment {editingEmiIndex + 1}</h3>
+              <button onClick={() => setEditingEmiIndex(null)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Due Date</label>
+                <input 
+                  type="date" 
+                  value={editEmiDate}
+                  onChange={(e) => setEditEmiDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Amount (₹)</label>
+                <input 
+                  type="number" 
+                  value={editEmiAmount}
+                  onChange={(e) => setEditEmiAmount(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="bg-amber-50 border border-amber-100 text-amber-600 text-[10px] p-3 rounded-xl leading-relaxed">
+                <strong>Note:</strong> Any changes to this amount will automatically adjust the remaining EMIs to keep the total fee balanced.
+              </div>
+            </div>
+            
+            <div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50">
+              <button
+                onClick={() => setEditingEmiIndex(null)}
+                className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEmiEdit}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-600/20"
+              >
+                Apply & Save
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

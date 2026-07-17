@@ -4,9 +4,37 @@ import React, { useState, useEffect } from "react";
 import { useUser } from "../../component/context/user-context";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
 import Link from "next/link";
+import ProfileDisplay from "@/components/ProfileDisplay";
+import { motion, AnimatePresence, Variants } from "framer-motion";
+
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.05 } }
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+};
+
+const MOTIVATIONAL_QUOTES = [
+  "Every conversation is a step closer to changing a life.",
+  "Success is not final, failure is not fatal: it is the courage to continue that counts.",
+  "The secret of getting ahead is getting started.",
+  "Opportunities don't happen. You create them.",
+  "To give real service you must add something which cannot be bought or measured with money.",
+  "Strive not to be a success, but rather to be of value.",
+  "Your most unhappy customers are your greatest source of learning.",
+  "Don't watch the clock; do what it does. Keep going.",
+  "You are never too old to set another goal or to dream a new dream.",
+  "The only way to do great work is to love what you do.",
+  "Believe you can and you're halfway there.",
+  "Act as if what you do makes a difference. It does."
+];
 
 export default function CounsellorDashboardPage() {
   const { user, logout } = useUser();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const [stats, setStats] = useState({
     leadsCount: 0,
@@ -30,6 +58,9 @@ export default function CounsellorDashboardPage() {
   const [recentEnquiries, setRecentEnquiries] = useState<any[]>([]);
   const [todayFollowUps, setTodayFollowUps] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [birthdays, setBirthdays] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -77,7 +108,12 @@ export default function CounsellorDashboardPage() {
                     time: f.time || "TBD",
                     action: f.typeOfContact || "Call",
                     completed: f.isCompleted || false,
-                    text: `${f.typeOfContact || "Follow-up"} with ${e.studentFullName}`
+                    text: `${f.typeOfContact || "Follow-up"} with ${e.studentFullName}`,
+                    email: e.emailAddress,
+                    number: e.primaryPhoneMobile,
+                    course: e.targetCourse,
+                    fee: e.expectedCourseFee,
+                    priorityLevel: e.priorityLevel
                   });
                 }
               });
@@ -119,6 +155,78 @@ export default function CounsellorDashboardPage() {
 
           // Tasks
           setTasks(fUpList.filter((f: any) => !f.completed).slice(0, 4));
+
+          // Birthdays
+          const tDate = new Date();
+          const tMonth = tDate.getMonth();
+          const tDay = tDate.getDate();
+          const upcomingBirthdays = myAdmissions
+            .filter((a: any) => a.dob)
+            .map((a: any) => {
+              const d = new Date(a.dob);
+              return {
+                id: a._id || Math.random().toString(),
+                name: a.fullName,
+                month: d.getMonth(),
+                day: d.getDate(),
+                dateStr: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+              };
+            })
+            .filter((b: any) => (b.month === tMonth && b.day >= tDay) || (b.month === (tMonth + 1) % 12))
+            .sort((a: any, b: any) => {
+              const distA = a.month === tMonth ? a.day - tDay : a.day + 31;
+              const distB = b.month === tMonth ? b.day - tDay : b.day + 31;
+              return distA - distB;
+            })
+            .slice(0, 3);
+          setBirthdays(upcomingBirthdays);
+
+          // Notifications
+          const notifs: any[] = [];
+          const newEnquiriesToday = myEnquiries.filter((e: any) => {
+            if (!e.createdAt) return false;
+            const d = new Date(e.createdAt);
+            return d.toISOString().split("T")[0] === todayStr;
+          });
+          newEnquiriesToday.forEach((e: any) => {
+            notifs.push({
+              id: "new_" + e._id,
+              title: "New Enquiry",
+              message: `${e.studentFullName} enquired for ${e.targetCourse || 'a course'}`,
+              time: new Date(e.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              type: "new_lead",
+              isRead: false,
+              email: e.emailAddress,
+              number: e.primaryPhoneMobile,
+              course: e.targetCourse,
+              fee: e.expectedCourseFee,
+              priorityLevel: e.priorityLevel
+            });
+          });
+          fUpList.forEach((f: any) => {
+            notifs.push({
+              id: "fup_" + f.id,
+              title: `Follow-up: ${f.name}`,
+              message: f.text,
+              time: f.time,
+              type: "follow_up",
+              isRead: false,
+              email: f.email,
+              number: f.number,
+              course: f.course,
+              fee: f.fee,
+              priorityLevel: f.priorityLevel
+            });
+          });
+          
+          notifs.sort((a, b) => {
+            const pMap: any = { High: 3, Medium: 2, Low: 1 };
+            const valA = pMap[a.priorityLevel || 'Medium'] || 0;
+            const valB = pMap[b.priorityLevel || 'Medium'] || 0;
+            return valB - valA;
+          });
+
+          setNotifications(notifs);
         }
       } catch (err) {
         console.error("Failed to fetch dashboard data", err);
@@ -142,6 +250,12 @@ export default function CounsellorDashboardPage() {
     return ((val / total) * 100).toFixed(1) + "%";
   };
   const totalPipeline = Object.values(pipeline).reduce((a, b) => a + b, 0);
+
+  const [todaysQuote, setTodaysQuote] = useState(MOTIVATIONAL_QUOTES[0]);
+  useEffect(() => {
+    const dayOfYear = Math.floor((new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 1000 / 60 / 60 / 24);
+    setTodaysQuote(MOTIVATIONAL_QUOTES[dayOfYear % MOTIVATIONAL_QUOTES.length]);
+  }, []);
 
   return (
     <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
@@ -172,16 +286,80 @@ export default function CounsellorDashboardPage() {
               </span>
             </div>
 
-            <button className="relative text-slate-400 hover:text-slate-600 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-              </svg>
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white border-2 border-white">
-                3
-              </span>
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                className="relative text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                </svg>
+                {notifications.length > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white border-2 border-white">
+                    {notifications.length}
+                  </span>
+                )}
+              </button>
 
-            <div className="flex items-center gap-3 border-l border-slate-200 pl-5 cursor-pointer" onClick={logout}>
+              <AnimatePresence>
+              {isNotificationsOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-50"
+                >
+                  <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                    <h3 className="text-sm font-bold text-slate-800">Today's Notifications</h3>
+                    <span className="text-[10px] font-semibold bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full">{notifications.length} New</span>
+                  </div>
+                  <div className="max-h-96 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-slate-500">No notifications for today</div>
+                    ) : (
+                      notifications.map((notif: any) => (
+                        <div key={notif.id} className="group relative p-4 border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-xs font-bold text-slate-800">{notif.title}</span>
+                            <span className="text-[10px] font-semibold text-slate-400">{notif.time}</span>
+                          </div>
+                          <p className="text-xs text-slate-600 line-clamp-2">{notif.message}</p>
+                          <div className="hidden group-hover:block mt-3 pt-3 border-t border-slate-200">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <span className="text-[10px] font-bold text-slate-400 block">Email</span>
+                                <span className="text-[11px] font-semibold text-slate-700 truncate block" title={notif.email}>{notif.email || 'N/A'}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] font-bold text-slate-400 block">Number</span>
+                                <span className="text-[11px] font-semibold text-slate-700 truncate block">{notif.number || 'N/A'}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] font-bold text-slate-400 block">Course</span>
+                                <span className="text-[11px] font-semibold text-slate-700 truncate block" title={notif.course}>{notif.course || 'N/A'}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] font-bold text-slate-400 block">Expected Fee</span>
+                                <span className="text-[11px] font-semibold text-slate-700 truncate block">{notif.fee || 'N/A'}</span>
+                              </div>
+                            </div>
+                            <div className="mt-2">
+                              <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${notif.priorityLevel === 'High' ? 'bg-rose-100 text-rose-600' : notif.priorityLevel === 'Low' ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-600'}`}>
+                                {notif.priorityLevel || 'Medium'} Priority
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </motion.div>
+              )}
+              </AnimatePresence>
+            </div>
+
+            <div className="flex items-center gap-3 border-l border-slate-200 pl-5 cursor-pointer" onClick={() => setIsProfileOpen(true)}>
               <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold overflow-hidden shadow-sm">
                 <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || "U")}&background=10b981&color=fff`} alt="User" className="h-full w-full object-cover" />
               </div>
@@ -194,10 +372,16 @@ export default function CounsellorDashboardPage() {
               </svg>
             </div>
           </div>
+          <ProfileDisplay isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} logout={logout} />
         </header>
 
         {/* Dashboard Content */}
-        <div className="p-6 space-y-6">
+        <motion.div 
+          className="p-6 space-y-6"
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+        >
 
           {/* Top Metrics Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
@@ -326,24 +510,19 @@ export default function CounsellorDashboardPage() {
             {/* Upcoming Birthdays */}
             <DashboardCard title="Upcoming Birthdays" actionText="View All">
               <div className="space-y-4 mt-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-rose-500">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
-                    </svg>
-                    <span className="text-xs font-bold text-slate-700">Rahul Sharma</span>
+                {birthdays.length > 0 ? birthdays.map((b: any) => (
+                  <div key={b.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-rose-500">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                      </svg>
+                      <span className="text-xs font-bold text-slate-700">{b.name}</span>
+                    </div>
+                    <span className="text-xs text-slate-500 font-semibold">{b.dateStr}</span>
                   </div>
-                  <span className="text-xs text-slate-500 font-semibold">17 Jul</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-rose-500">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
-                    </svg>
-                    <span className="text-xs font-bold text-slate-700">Neha Patel</span>
-                  </div>
-                  <span className="text-xs text-slate-500 font-semibold">19 Jul</span>
-                </div>
+                )) : (
+                  <p className="text-xs text-slate-400">No upcoming birthdays.</p>
+                )}
               </div>
             </DashboardCard>
 
@@ -352,7 +531,7 @@ export default function CounsellorDashboardPage() {
               <div className="mt-4 flex flex-col items-center justify-center h-full text-center px-4 relative">
                 <span className="text-4xl text-emerald-200 absolute top-0 left-2">"</span>
                 <p className="text-sm font-semibold text-slate-600 italic relative z-10 px-4">
-                  Every conversation is a step closer to changing a life.
+                  {todaysQuote}
                 </p>
                 <span className="text-4xl text-emerald-200 absolute bottom-0 right-2 leading-none">"</span>
               </div>
@@ -360,7 +539,7 @@ export default function CounsellorDashboardPage() {
 
           </div>
 
-        </div>
+        </motion.div>
       </div>
     </div>
   );
@@ -372,7 +551,9 @@ function MetricCard({ title, value, trend, trendUp, icon, hoverList }: any) {
   const [showTooltip, setShowTooltip] = useState(false);
 
   return (
-    <div
+    <motion.div
+      variants={itemVariants}
+      whileHover={{ y: -4, transition: { duration: 0.2 } }}
       className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-shadow relative"
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
@@ -407,13 +588,13 @@ function MetricCard({ title, value, trend, trendUp, icon, hoverList }: any) {
           ))}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
 function DashboardCard({ title, actionText, children }: any) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex flex-col">
+    <motion.div variants={itemVariants} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex flex-col">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-slate-800">{title}</h3>
         {actionText && (
@@ -425,7 +606,7 @@ function DashboardCard({ title, actionText, children }: any) {
       <div className="flex-1">
         {children}
       </div>
-    </div>
+    </motion.div>
   );
 }
 

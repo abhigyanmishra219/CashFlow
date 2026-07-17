@@ -51,6 +51,10 @@ const AdmissionSchema = new Schema(
     hasEmi: { type: Boolean, default: false },
     numInstallments: { type: Number, default: 1 },
     installmentAmount: { type: Number, default: 0 },
+    customEmiPlan: [{
+      dueDate: { type: Date },
+      amount: { type: Number }
+    }],
   },
   {
     timestamps: true,
@@ -60,8 +64,19 @@ const AdmissionSchema = new Schema(
 // Auto-generate admissionId
 AdmissionSchema.pre("save", async function () {
   if (!this.admissionId) {
-    const count = await mongoose.models.Admission.countDocuments();
-    this.admissionId = `ADM${String(count + 1).padStart(6, "0")}`;
+    const lastAdmission = await mongoose.models.Admission.findOne({
+      admissionId: /^ADM\d+$/
+    }).sort({ admissionId: -1 });
+
+    let nextNumber = 1;
+    if (lastAdmission && lastAdmission.admissionId) {
+      const match = lastAdmission.admissionId.match(/^ADM(\d+)$/);
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+    
+    this.admissionId = `ADM${String(nextNumber).padStart(6, "0")}`;
   }
 });
 
