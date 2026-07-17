@@ -393,8 +393,13 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                     <label className="text-xs font-bold text-slate-500">Discount Type</label>
                     <select value={discountType} onChange={e=>setDiscountType(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white">
                       <option value="None">None</option>
-                      <option value="Early Bird">Early Bird</option>
-                      <option value="Special Offer">Special Offer</option>
+                      <option value="Festive Offer">Festive Offer</option>
+                      <option value="Launching of Course">Launching of Course</option>
+                      <option value="Anniversary Offer">Anniversary Offer</option>
+                      <option value="Month End Offer">Month End Offer</option>
+                      <option value="Group Discount">Group Discount</option>
+                      <option value="Early Bird Offer">Early Bird Offer</option>
+                      <option value="Referral Discount">Referral Discount</option>
                     </select>
                   </div>
                   <div className="flex flex-col gap-1.5">
