@@ -2,13 +2,18 @@
 
 import React, { useState, useEffect } from "react";
 import AddCourseModal from "./AddCourseModal";
-
+import DeleteConfirmModal from "./DeleteConfirmModal";
+import { useUser } from "@/app/component/context/user-context";
 
 export default function CourseDisplay() {
+  const { user } = useUser();
   const [courses, setCourses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  // Delete Modal state
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState("");
@@ -41,16 +46,16 @@ export default function CourseDisplay() {
     fetchCourses();
   };
 
-
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this course?")) return;
+  const confirmDeleteCourse = async () => {
+    if (!itemToDelete) return;
+    setIsDeleting(true);
     try {
-      const response = await fetch(`/api/courses/${id}`, {
+      const response = await fetch(`/api/courses/${itemToDelete.id}`, {
         method: "DELETE",
       });
       const data = await response.json();
       if (response.ok && data.success) {
+        setItemToDelete(null);
         fetchCourses();
       } else {
         alert("Failed to delete: " + (data.error || "unknown error"));
@@ -58,6 +63,8 @@ export default function CourseDisplay() {
     } catch (error) {
       console.error("Error deleting course:", error);
       alert("Error deleting course");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -265,16 +272,18 @@ export default function CourseDisplay() {
         {/* Dropdowns */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Brand Filter */}
-          <select
-            value={selectedBrand}
-            onChange={(e) => setSelectedBrand(e.target.value)}
-            className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-600 focus:outline-none"
-          >
-            <option value="All Brands (Super)">All Brands (Super)</option>
-            {uniqueBrands.map((brand, i) => (
-              <option key={i} value={brand}>{brand}</option>
-            ))}
-          </select>
+          {user?.role !== "brand manager" && (
+            <select
+              value={selectedBrand}
+              onChange={(e) => setSelectedBrand(e.target.value)}
+              className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-600 focus:outline-none cursor-pointer"
+            >
+              <option value="All Brands (Super)">All Brands (Super)</option>
+              {uniqueBrands.map((brand, i) => (
+                <option key={i} value={brand}>{brand}</option>
+              ))}
+            </select>
+          )}
 
           {/* Category Filter */}
           <select
@@ -410,7 +419,7 @@ export default function CourseDisplay() {
                           </svg>
                         </button>
                         <button
-                          onClick={() => handleDelete(course._id)}
+                          onClick={() => setItemToDelete({ id: course._id, name: course.name })}
                           className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-rose-600 transition-colors"
                           title="Delete Course"
                         >
@@ -458,6 +467,16 @@ export default function CourseDisplay() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onSuccess={handleAddSuccess}
+      />
+
+      {/* Reusable Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={Boolean(itemToDelete)}
+        title="Delete Course Curriculum"
+        itemName={itemToDelete?.name || "this course"}
+        isLoading={isDeleting}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={confirmDeleteCourse}
       />
 
 

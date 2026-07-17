@@ -5,9 +5,10 @@ import React, { useState } from "react";
 interface RegisterCounsellorModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function RegisterCounsellorModal({ isOpen, onClose }: RegisterCounsellorModalProps) {
+export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: RegisterCounsellorModalProps) {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -54,8 +55,11 @@ export default function RegisterCounsellorModal({ isOpen, onClose }: RegisterCou
         setError(data.error || "Failed to register counsellor.");
       } else {
         onClose();
-        // Reload page to fetch the newly created counsellor
-        window.location.reload();
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          window.location.reload();
+        }
       }
     } catch (err) {
       console.error(err);
