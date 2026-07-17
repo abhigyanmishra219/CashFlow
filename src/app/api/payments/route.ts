@@ -63,7 +63,6 @@ export async function POST(req: Request) {
 
     // 3. Update the admission balance and last transaction details
     admission.remainingBalance = Math.max(0, admission.remainingBalance - Number(amountReceived));
-    admission.amountReceivedToday = Number(amountReceived);
     await admission.save();
 
     return NextResponse.json(

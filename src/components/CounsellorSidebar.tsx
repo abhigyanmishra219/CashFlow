@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { useUser } from "@/app/component/context/user-context";
 
@@ -169,7 +170,11 @@ export default function CounsellorSidebar() {
               {group.items.map((item) => {
                 const isActive = pathname === item.href;
                 return (
-                  <li key={item.name}>
+                  <motion.li 
+                    key={item.name}
+                    whileHover={{ scale: 1.02, x: 4 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  >
                     <Link
                       href={item.href}
                       onClick={item.onClick ? (e) => { e.preventDefault(); item.onClick!(); } : undefined}
@@ -187,7 +192,7 @@ export default function CounsellorSidebar() {
                       </span>
                       {!isCollapsed && <span>{item.name}</span>}
                     </Link>
-                  </li>
+                  </motion.li>
                 );
               })}
             </ul>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface AddEnquiryModalProps {
   isOpen: boolean;
@@ -37,7 +38,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  // Removed if (!isOpen) return null; to handle AnimatePresence
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -75,9 +76,23 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in font-sans">
-      <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-        {/* Header */}
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 font-sans"
+        >
+          <motion.form 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            onSubmit={handleSubmit} 
+            className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+          >
+            {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 p-4 shrink-0">
           <h3 className="text-sm font-extrabold text-slate-800 flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-indigo-600">
@@ -310,7 +325,9 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
             {isSubmitting ? "Saving..." : "Create Client Lead"}
           </button>
         </div>
-      </form>
-    </div>
+          </motion.form>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

@@ -3,6 +3,17 @@
 import React, { useState, useEffect } from "react";
 import { useUser } from "../../../component/context/user-context";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
+import { motion, AnimatePresence, Variants } from "framer-motion";
+
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+};
 
 export default function CounsellorTasksPage() {
   const { user, logout } = useUser();
@@ -27,13 +38,13 @@ export default function CounsellorTasksPage() {
   }, [user]);
 
   const filteredEnquiries = enquiries.filter((enq) => {
-    const matchesSearch = searchQuery === "" || 
+    const matchesSearch = searchQuery === "" ||
       (enq.studentFullName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (enq.primaryPhoneMobile || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (enq.targetCourse || "").toLowerCase().includes(searchQuery.toLowerCase());
-      
+
     const matchesPriority = priorityFilter === "All Priorities" || enq.priorityLevel === priorityFilter;
-    
+
     let matchesChecklist = true;
     if (checklistFilter === "Show Pending Checklist") {
       matchesChecklist = enq.status !== "Admitted";
@@ -57,7 +68,7 @@ export default function CounsellorTasksPage() {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         {/* Header Bar */}
-        <header className="bg-white border-b border-slate-200/60 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
+        {/* <header className="bg-white border-b border-slate-200/60 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-bold text-slate-800 tracking-tight">Dashboard</h1>
           </div>
@@ -99,16 +110,21 @@ export default function CounsellorTasksPage() {
               </svg>
             </div>
           </div>
-        </header>
+        </header> */}
 
         {/* Dashboard Content */}
-        <div className="p-8 space-y-6 max-w-7xl mx-auto w-full">
-          <div>
+        <motion.div 
+          className="p-8 space-y-6 max-w-7xl mx-auto w-full"
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+        >
+          <motion.div variants={itemVariants}>
             <h2 className="text-[28px] font-black text-[#1e293b] tracking-tight">My CRM Checklist</h2>
             <p className="text-[#64748b] text-sm font-bold mt-1">Interactive checklist for logging interactions and tracking scheduled reminders.</p>
-          </div>
+          </motion.div>
 
-          <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm">
+          <motion.div variants={itemVariants} className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm">
             <div className="relative mb-6">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
@@ -121,10 +137,10 @@ export default function CounsellorTasksPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="relative">
-                <select 
+                <select
                   className="w-full appearance-none pl-4 pr-10 py-2.5 bg-white border border-slate-200/80 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                   value={checklistFilter}
                   onChange={(e) => setChecklistFilter(e.target.value)}
@@ -138,7 +154,7 @@ export default function CounsellorTasksPage() {
                 </div>
               </div>
               <div className="relative">
-                <select 
+                <select
                   className="w-full appearance-none pl-4 pr-10 py-2.5 bg-white border border-slate-200/80 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                   value={priorityFilter}
                   onChange={(e) => setPriorityFilter(e.target.value)}
@@ -153,7 +169,7 @@ export default function CounsellorTasksPage() {
                 </div>
               </div>
               <div className="relative">
-                <select 
+                <select
                   className="w-full appearance-none pl-4 pr-10 py-2.5 bg-white border border-slate-200/80 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                   value={contactTypeFilter}
                   onChange={(e) => setContactTypeFilter(e.target.value)}
@@ -168,11 +184,11 @@ export default function CounsellorTasksPage() {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
 
-          <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm min-h-[300px] flex flex-col">
+          <motion.div variants={itemVariants} className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm min-h-[300px] flex flex-col">
             <h3 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-6">Checklist Tasks ({filteredEnquiries.length})</h3>
-            
+
             {filteredEnquiries.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center -mt-10">
                 <div className="mb-3">
@@ -183,9 +199,17 @@ export default function CounsellorTasksPage() {
                 <p className="text-sm font-bold text-slate-400">All tasks completed in this query.</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <motion.div layout className="space-y-3">
+                <AnimatePresence>
                 {filteredEnquiries.map((enq) => (
-                  <div key={enq._id} className="flex items-center justify-between p-4 border border-slate-100 rounded-xl hover:shadow-md transition-shadow group">
+                  <motion.div 
+                    key={enq._id} 
+                    initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, height: "auto", scale: 1 }}
+                    exit={{ opacity: 0, height: 0, scale: 0.95, margin: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex items-center justify-between p-4 border border-slate-100 rounded-xl hover:shadow-md transition-shadow group overflow-hidden"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden shrink-0">
                         <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(enq.studentFullName || 'U')}&background=f1f5f9&color=64748b`} alt={enq.studentFullName} className="h-full w-full" />
@@ -196,24 +220,24 @@ export default function CounsellorTasksPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`text-[10px] font-bold px-2 py-1 rounded border ${
-                        enq.priorityLevel === 'High' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                        enq.priorityLevel === 'Low' ? 'bg-slate-50 text-slate-600 border-slate-200' :
-                        'bg-amber-50 text-amber-600 border-amber-100'
-                      }`}>
+                      <span className={`text-[10px] font-bold px-2 py-1 rounded border ${enq.priorityLevel === 'High' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                          enq.priorityLevel === 'Low' ? 'bg-slate-50 text-slate-600 border-slate-200' :
+                            'bg-amber-50 text-amber-600 border-amber-100'
+                        }`}>
                         {enq.priorityLevel || 'Medium'}
                       </span>
                       <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 rounded px-2 py-1">
                         {enq.status || 'New'}
                       </span>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
+                </AnimatePresence>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
 
-        </div>
+        </motion.div>
       </div>
     </div>
   );
