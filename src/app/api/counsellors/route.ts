@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
+import Admission from "@/models/Admission";
 
 export async function POST(request: Request) {
   try {
@@ -74,12 +75,49 @@ export async function POST(request: Request) {
   }
 }
 
-// GET: Fetch all users with role "counsellor"
+// GET: Fetch all users with role "counsellor" with live admission metrics calculation
 export async function GET() {
   try {
     await dbConnect();
-    const list = await User.find({ role: "counsellor" }).select("-password").sort({ createdAt: -1 });
-    return NextResponse.json({ success: true, counsellors: list });
+    const counsellors = await User.find({ role: "counsellor" }).select("-password").sort({ createdAt: -1 });
+    const admissions = await Admission.find({});
+
+    const counsellorsWithLiveStats = counsellors.map((c: any) => {
+      const cObj = c.toObject();
+
+      // Find all admissions assigned to this counsellor
+      const matchingAdmissions = admissions.filter((adm: any) => {
+        if (!adm.counsellor) return false;
+        const admCounsellor = adm.counsellor.toLowerCase().trim();
+        const cName = (c.name || "").toLowerCase().trim();
+        const cEmail = (c.email || "").toLowerCase().trim();
+        const cId = c._id.toString();
+
+        return (
+          admCounsellor === cName ||
+          admCounsellor === cEmail ||
+          admCounsellor === cId ||
+          (cName && admCounsellor.includes(cName)) ||
+          (cName && cName.includes(admCounsellor))
+        );
+      });
+
+      const actualAdmissionsCount = matchingAdmissions.length;
+      const actualRevenue = matchingAdmissions.reduce((sum: number, adm: any) => {
+        const paid =
+          adm.amountReceivedToday ||
+          Number(adm.finalFee || 0) - Number(adm.remainingBalance || 0);
+        return sum + Math.max(Number(paid) || 0, 0);
+      }, 0);
+
+      return {
+        ...cObj,
+        currentRevenue: actualRevenue > 0 ? actualRevenue : c.currentRevenue || 0,
+        admissionsRecorded: actualAdmissionsCount > 0 ? actualAdmissionsCount : c.admissionsRecorded || 0,
+      };
+    });
+
+    return NextResponse.json({ success: true, counsellors: counsellorsWithLiveStats });
   } catch (error: any) {
     console.error("Counsellor Fetch API Error:", error);
     return NextResponse.json(
