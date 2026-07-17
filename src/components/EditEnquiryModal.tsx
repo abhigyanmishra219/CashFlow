@@ -20,6 +20,7 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
     status: "",
     priorityLevel: "",
     assignedCrmAdvisor: "",
+    leadSource: "",
     remarks: "",
   });
 
@@ -34,6 +35,7 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
         status: lead.status || "New",
         priorityLevel: lead.priorityLevel || "Medium",
         assignedCrmAdvisor: lead.assignedCrmAdvisor || "Rahul Sharma",
+        leadSource: lead.leadSource || "Website",
         remarks: lead.remarks || "",
       });
     }
@@ -136,6 +138,21 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
                 <option value="High">High</option>
                 <option value="Medium">Medium</option>
                 <option value="Low">Low</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1.5">Lead Source</label>
+              <select name="leadSource" value={formData.leadSource} onChange={handleChange} className="w-full text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
+                <option value="Google Ads">Google Ads</option>
+                <option value="Meta Ads">Meta Ads</option>
+                <option value="Website">Website</option>
+                <option value="Seminar">Seminar</option>
+                <option value="Hoarding">Hoarding</option>
+                <option value="Reference">Reference</option>
+                <option value="Paper Ads">Paper Ads</option>
+                <option value="Internet Search">Internet Search</option>
+                <option value="Direct Walkin">Direct Walkin</option>
+                <option value="Call on Database">Call on Database</option>
               </select>
             </div>
             <div>
