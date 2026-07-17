@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useUser } from "@/app/component/context/user-context";
 
 interface AddCourseModalProps {
   isOpen: boolean;
@@ -9,10 +10,26 @@ interface AddCourseModalProps {
 }
 
 export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourseModalProps) {
+  const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   if (!isOpen) return null;
+
+  // Determine available brands based on logged-in user role & brandScope
+  const getBrandOptions = (): string[] => {
+    if (user?.brandScope && user.role === "brand manager") {
+      const userBrands = user.brandScope.split(",").map((b: string) => b.trim()).filter(Boolean);
+      if (userBrands.length > 0) return userBrands;
+    }
+    if (user?.brandScope && user.role !== "super admin") {
+      const userBrands = user.brandScope.split(",").map((b: string) => b.trim()).filter(Boolean);
+      if (userBrands.length > 0) return userBrands;
+    }
+    return ["Cadd Mantra", "SyncForge", "Design Gateway", "Corporate Enterprise", "Apex Academy"];
+  };
+
+  const brandOptions = getBrandOptions();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -159,11 +176,14 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
               <select
                 name="brand"
                 required
+                defaultValue={brandOptions[0]}
                 className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
               >
-                <option value="Cadd Mantra">Cadd Mantra</option>
-                <option value="SyncForge">SyncForge</option>
-                <option value="Apex Academy">Apex Academy</option>
+                {brandOptions.map((brandName: string, idx: number) => (
+                  <option key={idx} value={brandName}>
+                    {brandName}
+                  </option>
+                ))}
               </select>
             </div>
 

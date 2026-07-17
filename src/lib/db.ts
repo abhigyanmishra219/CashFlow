@@ -1,7 +1,11 @@
 import mongoose from "mongoose";
 import dns from "node:dns";
 
-dns.setServers(["8.8.8.8", "1.1.1.1"]);
+try {
+  dns.setServers(["8.8.8.8", "8.8.4.4"]);
+} catch {
+  // Fallback to default system DNS if custom setting fails
+}
 
 const MONGODB_URI = process.env.MONGODB_URI as string;
 
