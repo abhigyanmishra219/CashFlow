@@ -10,8 +10,11 @@
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
+<<<<<<< HEAD
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
+=======
+>>>>>>> 645d844 (update)
     "framer-motion": "^12.42.2",
     "mongoose": "^9.7.4",
     "next": "16.2.10",
