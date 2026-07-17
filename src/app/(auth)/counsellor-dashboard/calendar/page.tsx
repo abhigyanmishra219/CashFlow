@@ -3,6 +3,17 @@
 import React, { useState, useEffect } from "react";
 import { useUser } from "../../../component/context/user-context";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
+import { motion, AnimatePresence, Variants } from "framer-motion";
+
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+};
 
 export default function CounsellorCalendarPage() {
   const { user, logout } = useUser();
@@ -82,7 +93,7 @@ export default function CounsellorCalendarPage() {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         {/* Header Bar */}
-        <header className="bg-white border-b border-slate-200/60 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
+        {/* <header className="bg-white border-b border-slate-200/60 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-bold text-slate-800 tracking-tight">Dashboard</h1>
           </div>
@@ -124,19 +135,24 @@ export default function CounsellorCalendarPage() {
               </svg>
             </div>
           </div>
-        </header>
+        </header> */}
 
         {/* Dashboard Content */}
-        <div className="p-8 space-y-6 max-w-7xl mx-auto w-full">
-          <div>
+        <motion.div 
+          className="p-8 space-y-6 max-w-7xl mx-auto w-full"
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+        >
+          <motion.div variants={itemVariants}>
             <h2 className="text-[28px] font-black text-[#1e293b] tracking-tight">My Schedule Calendar</h2>
             <p className="text-[#64748b] text-sm font-bold mt-1">Interactive timeline agenda showing client follow-up dates and task schedules.</p>
-          </div>
+          </motion.div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            
+
             {/* Calendar Section */}
-            <div className="lg:col-span-2 bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm">
+            <motion.div variants={itemVariants} className="lg:col-span-2 bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm">
               <div className="flex items-center justify-between mb-8">
                 <h3 className="text-lg font-bold text-slate-800">{currentMonthName}</h3>
                 <div className="flex gap-2">
@@ -166,46 +182,44 @@ export default function CounsellorCalendarPage() {
               <div className="grid grid-cols-7 gap-2">
                 {days.map((day, index) => {
                   if (!day) return <div key={index} className="h-24 rounded-xl"></div>;
-                  
+
                   const current = isToday(day);
                   const selected = isSelected(day);
-                  
+
                   return (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       onClick={() => setSelectedDate(new Date(year, month, day))}
-                      className={`h-24 rounded-xl p-3 cursor-pointer transition-all border ${
-                        selected 
-                          ? 'border-indigo-500 shadow-sm shadow-indigo-100 bg-indigo-50/30' 
+                      className={`h-24 rounded-xl p-3 cursor-pointer transition-all border ${selected
+                          ? 'border-indigo-500 shadow-sm shadow-indigo-100 bg-indigo-50/30'
                           : current
                             ? 'border-emerald-300 bg-emerald-50/30'
                             : 'border-slate-100 hover:border-slate-300'
-                      }`}
+                        }`}
                     >
-                      <span className={`text-xs font-bold ${
-                        selected 
+                      <span className={`text-xs font-bold ${selected
                           ? 'text-indigo-600'
                           : current
                             ? 'text-emerald-500'
                             : 'text-slate-700'
-                      }`}>
+                        }`}>
                         {day}
                       </span>
                     </div>
                   );
                 })}
               </div>
-            </div>
+            </motion.div>
 
             {/* Agenda Tasks Section */}
-            <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm min-h-[500px] flex flex-col">
+            <motion.div variants={itemVariants} className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm min-h-[500px] flex flex-col">
               <div className="flex items-center justify-between mb-10">
                 <h3 className="text-sm font-bold text-slate-800">Agenda Tasks</h3>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  {monthNames[selectedDate.getMonth()].substring(0,3)} {selectedDate.getDate()}, {selectedDate.getFullYear()}
+                  {monthNames[selectedDate.getMonth()].substring(0, 3)} {selectedDate.getDate()}, {selectedDate.getFullYear()}
                 </span>
               </div>
-              
+
               <div className="flex-1 flex flex-col relative mt-2">
                 {dateEnquiries.length === 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center text-center">
@@ -214,10 +228,15 @@ export default function CounsellorCalendarPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-3 relative">
+                  <motion.div layout className="space-y-3 relative">
+                    <AnimatePresence mode="popLayout">
                     {dateEnquiries.map((enq) => (
-                      <div 
-                        key={enq._id} 
+                      <motion.div
+                        layout
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.1 } }}
+                        key={enq._id}
                         className="p-3 border border-slate-100 rounded-xl hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer relative"
                         onMouseEnter={() => setHoveredEnq(enq._id)}
                         onMouseLeave={() => setHoveredEnq(null)}
@@ -258,15 +277,16 @@ export default function CounsellorCalendarPage() {
                             <div className="absolute top-6 -right-1.5 w-3 h-3 bg-white border-r border-t border-slate-200 rotate-45"></div>
                           </div>
                         )}
-                      </div>
+                      </motion.div>
                     ))}
-                  </div>
+                    </AnimatePresence>
+                  </motion.div>
                 )}
               </div>
-            </div>
+            </motion.div>
 
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Admission from "@/models/Admission";
 import Enquiry from "@/models/Enquiry";
+import Payment from "@/models/Payment";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,6 +15,27 @@ export async function POST(req: NextRequest) {
     // Optionally update the original enquiry status if enquiryId is present
     if (data.enquiryId) {
       await Enquiry.findByIdAndUpdate(data.enquiryId, { status: "Admitted" });
+    }
+
+    // Automatically generate a Payment record for the initial payment collected during admission
+    if (data.amountReceivedToday > 0) {
+      const initialPayment = new Payment({
+        admissionId: admission._id,
+        studentName: admission.fullName,
+        amountReceived: Number(data.amountReceivedToday),
+        paymentMode: data.paymentMode || "Cash",
+        referenceNo: data.transactionNo || "N/A",
+        company: data.companyAssigned || "Unknown",
+        paymentDate: admission.paymentDate || new Date(),
+        particulars: {
+          courseFeeDue: 0,
+          registrationFeeDue: 0,
+          materialFeeDue: 0,
+          examFeeDue: 0
+        },
+        remarks: "Initial payment upon admission"
+      });
+      await initialPayment.save();
     }
 
     return NextResponse.json(

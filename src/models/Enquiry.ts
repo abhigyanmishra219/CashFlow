@@ -101,9 +101,19 @@ const EnquirySchema = new Schema(
 // Auto-generate enquiryId before saving if not present
 EnquirySchema.pre("save", async function () {
   if (!this.enquiryId) {
-    // Generate an ID like ENQ000001
-    const count = await mongoose.models.Enquiry.countDocuments();
-    this.enquiryId = `ENQ${String(count + 1).padStart(6, "0")}`;
+    const lastEnquiry = await mongoose.models.Enquiry.findOne({
+      enquiryId: /^ENQ\d+$/
+    }).sort({ enquiryId: -1 });
+
+    let nextNumber = 1;
+    if (lastEnquiry && lastEnquiry.enquiryId) {
+      const match = lastEnquiry.enquiryId.match(/^ENQ(\d+)$/);
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+    
+    this.enquiryId = `ENQ${String(nextNumber).padStart(6, "0")}`;
   }
 });
 

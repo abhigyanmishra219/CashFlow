@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface AdmissionModalProps {
   isOpen: boolean;
@@ -157,11 +158,24 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
     }
   };
 
-  if (!isOpen) return null;
+  // Removed if (!isOpen) return null; to handle AnimatePresence
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-slate-50 w-full h-full max-w-[1400px] max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200">
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+        >
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="bg-slate-50 w-full h-full max-w-[1400px] max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200"
+          >
         
         {/* Header */}
         <div className="bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
@@ -644,7 +658,9 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
           </div>
         </div>
 
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

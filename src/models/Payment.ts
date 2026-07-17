@@ -51,9 +51,20 @@ const PaymentSchema = new Schema(
 // Auto-generate receiptNo before saving
 PaymentSchema.pre("save", async function () {
   if (!this.receiptNo) {
-    const count = await mongoose.models.Payment.countDocuments();
     const currentYear = new Date().getFullYear();
-    this.receiptNo = `REC-${currentYear}-${String(count + 1).padStart(5, "0")}`;
+    const lastPayment = await mongoose.models.Payment.findOne({
+      receiptNo: new RegExp(`^REC-${currentYear}-`)
+    }).sort({ receiptNo: -1 });
+
+    let nextNumber = 1;
+    if (lastPayment && lastPayment.receiptNo) {
+      const match = lastPayment.receiptNo.match(/-(\d+)$/);
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+    
+    this.receiptNo = `REC-${currentYear}-${String(nextNumber).padStart(5, "0")}`;
   }
 });
 

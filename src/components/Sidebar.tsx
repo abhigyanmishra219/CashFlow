@@ -35,15 +35,7 @@ export default function Sidebar() {
             </svg>
           ),
         },
-        {
-          name: "AI Assistant",
-          href: "/admin-dashboard/ai-assistant",
-          icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 0 0 2.25-2.25V5.25a2.25 2.25 0 0 0-2.25-2.25H6.75A2.25 2.25 0 0 0 4.5 5.25v10.5a2.25 2.25 0 0 0 2.25 2.25Zm.75-8.25h9v5.25H7.5V7.5Z" />
-            </svg>
-          ),
-        },
+
       ],
     },
     {

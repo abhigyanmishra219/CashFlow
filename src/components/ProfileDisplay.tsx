@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { User } from "../app/component/context/user-context";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ProfileDisplayProps {
   isOpen: boolean;
@@ -17,7 +18,7 @@ export default function ProfileDisplay({ isOpen, onClose, user, logout }: Profil
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  if (!isOpen) return null;
+  // Removed if (!isOpen) return null; to handle AnimatePresence
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,8 +55,21 @@ export default function ProfileDisplay({ isOpen, onClose, user, logout }: Profil
   const initialLetter = user.name ? user.name.charAt(0).toUpperCase() : "A";
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-      <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-6 relative font-sans text-slate-800">
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50"
+        >
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-6 relative font-sans text-slate-800"
+          >
 
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -159,7 +173,9 @@ export default function ProfileDisplay({ isOpen, onClose, user, logout }: Profil
           </button>
         </div>
 
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
