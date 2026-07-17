@@ -32,6 +32,7 @@ interface AdmissionType {
     numInstallments: number;
     installmentAmount: number;
     counsellor: string;
+    customEmiPlan?: { dueDate: Date | string; amount: number }[];
 }
 
 export default function CounsellorFeeCollectionPage() {
@@ -384,7 +385,7 @@ export default function CounsellorFeeCollectionPage() {
         
         newCustomPlan[newCustomPlan.length - 1].amount += (diff - appliedDiff);
         
-        setSelectedStudent(prev => ({ ...prev, customEmiPlan: newCustomPlan }));
+        setSelectedStudent(prev => prev ? ({ ...prev, customEmiPlan: newCustomPlan }) : null);
         setEditingEmiIndex(null);
         
         try {
