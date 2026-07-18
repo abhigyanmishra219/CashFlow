@@ -43,7 +43,7 @@ export default function FeeCollectionPage() {
   const [isLoadingAdmissions, setIsLoadingAdmissions] = useState(false);
   const [activeModal, setActiveModal] = useState<"history" | "ledger" | "print" | null>(null);
   const [selectedReceipt, setSelectedReceipt] = useState<any | null>(null);
-  
+
   // Form States
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [amountReceived, setAmountReceived] = useState("");
@@ -52,7 +52,7 @@ export default function FeeCollectionPage() {
   const [remarks, setRemarks] = useState("");
   const [allocateTo, setAllocateTo] = useState("Outstanding");
   const [selectedCompany, setSelectedCompany] = useState("");
-  
+
   // Particulars distribution checkboxes
   const [payCourseFee, setPayCourseFee] = useState(true);
   const [payOtherCharges, setPayOtherCharges] = useState(false);
@@ -283,35 +283,35 @@ export default function FeeCollectionPage() {
   const generateInstallments = () => {
     if (!selectedStudent) return [];
     const totalInst = selectedStudent.numInstallments || 4;
-    
+
     // Calculate how much of the fee is actually put into EMIs
     const initialPayment = selectedStudent.amountReceivedToday || 0;
     const emiPrincipal = selectedStudent.finalFee - initialPayment;
-    
+
     // Base amount is either from DB or calculated
     const baseAmount = selectedStudent.installmentAmount || Math.floor(emiPrincipal / totalInst);
-    
+
     // Amount paid specifically towards EMIs (total paid minus the downpayment)
     let runningPaid = Math.max(0, totalPaid - initialPayment);
-    
+
     const installments = [];
     const baseDate = new Date(selectedStudent.admissionDate || new Date());
     // Start EMIs 1 month after admission
     baseDate.setMonth(baseDate.getMonth() + 1);
 
     for (let i = 1; i <= totalInst; i++) {
-      let instAmount = i === totalInst 
-        ? emiPrincipal - baseAmount * (totalInst - 1) 
+      let instAmount = i === totalInst
+        ? emiPrincipal - baseAmount * (totalInst - 1)
         : baseAmount;
-      
+
       let dueDate = new Date(baseDate);
       dueDate.setMonth(baseDate.getMonth() + (i - 1));
-      
+
       if (selectedStudent.customEmiPlan && selectedStudent.customEmiPlan[i - 1]) {
         instAmount = selectedStudent.customEmiPlan[i - 1].amount;
         dueDate = new Date(selectedStudent.customEmiPlan[i - 1].dueDate);
       }
-      
+
       let status = "Pending";
       let statusClass = "text-slate-400 bg-slate-100 border-slate-200";
       let bulletClass = "bg-slate-200 border-slate-300";
@@ -354,42 +354,42 @@ export default function FeeCollectionPage() {
 
   const handleSaveEmiEdit = async () => {
     if (editingEmiIndex === null || !selectedStudent) return;
-    
+
     const currentPlan = generateInstallments();
     const originalAmount = currentPlan[editingEmiIndex].amount;
     const diff = originalAmount - editEmiAmount;
-    
+
     const remainingEmisCount = currentPlan.length - 1 - editingEmiIndex;
     if (remainingEmisCount <= 0) return;
-    
+
     const newCustomPlan = currentPlan.map((inst) => ({
-       dueDate: inst.rawDate,
-       amount: inst.amount
+      dueDate: inst.rawDate,
+      amount: inst.amount
     }));
-    
+
     newCustomPlan[editingEmiIndex].dueDate = new Date(editEmiDate);
     newCustomPlan[editingEmiIndex].amount = editEmiAmount;
-    
+
     const roundedDiffPerRemaining = Math.round(diff / remainingEmisCount);
     let appliedDiff = 0;
-    
+
     for (let i = editingEmiIndex + 1; i < newCustomPlan.length - 1; i++) {
-        newCustomPlan[i].amount += roundedDiffPerRemaining;
-        appliedDiff += roundedDiffPerRemaining;
+      newCustomPlan[i].amount += roundedDiffPerRemaining;
+      appliedDiff += roundedDiffPerRemaining;
     }
-    
+
     newCustomPlan[newCustomPlan.length - 1].amount += (diff - appliedDiff);
-    
+
     setSelectedStudent(prev => prev ? { ...prev, customEmiPlan: newCustomPlan } : null);
     setEditingEmiIndex(null);
-    
+
     try {
       await fetch("/api/admissions/custom-emi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ studentId: selectedStudent._id, customEmiPlan: newCustomPlan })
       });
-    } catch(e) {
+    } catch (e) {
       console.error(e);
     }
   };
@@ -425,7 +425,7 @@ export default function FeeCollectionPage() {
               placeholder="Search by name, admission no., mobile..."
               className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500/50 font-semibold"
             />
-            
+
             {/* Dropdown Results */}
             {showDropdown && searchResults.length > 0 && (
               <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto z-50">
@@ -444,7 +444,7 @@ export default function FeeCollectionPage() {
                 ))}
               </div>
             )}
-            
+
             {showDropdown && searchResults.length === 0 && !isLoadingSearch && (
               <div className="absolute left-0 right-0 mt-2 p-4 text-center bg-white border border-slate-200 rounded-xl text-[10px] text-slate-400 font-bold shadow-xl">
                 No matching admissions found
@@ -610,11 +610,10 @@ export default function FeeCollectionPage() {
                             key={mode}
                             type="button"
                             onClick={() => setPaymentMode(mode)}
-                            className={`px-4 py-2 border rounded-xl flex items-center gap-1.5 transition-all ${
-                              paymentMode === mode
+                            className={`px-4 py-2 border rounded-xl flex items-center gap-1.5 transition-all ${paymentMode === mode
                                 ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-600/10"
                                 : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"
-                            }`}
+                              }`}
                           >
                             <span>
                               {mode === "Cash" ? "💵" : mode === "UPI" ? "📱" : mode === "Card" ? "💳" : "💼"}
@@ -808,7 +807,7 @@ export default function FeeCollectionPage() {
                       <span>Total Due</span>
                       <span>₹{currentDue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                     </div>
-                    
+
                     <div className="pt-1.5 space-y-2">
                       <span className="block text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Today's Collection</span>
                       <div className="flex justify-between items-center text-emerald-600">
@@ -831,7 +830,7 @@ export default function FeeCollectionPage() {
                     </h3>
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-bold text-slate-500 uppercase">Customize EMI</span>
-                      <button 
+                      <button
                         onClick={() => {
                           setIsCustomEmi(!isCustomEmi);
                           if (isCustomEmi) setSelectedEmiIndices([]); // clear selection if toggled off
@@ -842,7 +841,7 @@ export default function FeeCollectionPage() {
                       </button>
                     </div>
                   </div>
-                  
+
                   {/* Stepper list */}
                   <div className="relative pl-6 space-y-5">
                     {/* Stepper vertical line background */}
@@ -853,7 +852,7 @@ export default function FeeCollectionPage() {
                         {/* Stepper node bullet */}
                         <div className={`absolute -left-5.5 mt-1 h-2.5 w-2.5 rounded-full border-2 border-white ${inst.bulletClass}`}></div>
 
-                        <div 
+                        <div
                           className={`space-y-0.5 pr-2 ${isCustomEmi && index !== (selectedStudent?.numInstallments || 4) - 1 && inst.status !== 'Paid' ? 'cursor-pointer hover:bg-slate-50 p-1 -m-1 rounded border border-dashed border-slate-300' : ''}`}
                           onClick={() => {
                             if (inst.status !== 'Paid') {
@@ -873,16 +872,16 @@ export default function FeeCollectionPage() {
                             {selectedEmiIndices.includes(index) ? "Paid" : inst.status}
                           </span>
                         </div>
-                        
+
                         {inst.status !== "Paid" && (
-                           <div className="flex items-center h-full pt-1">
-                             <input 
-                               type="checkbox" 
-                               checked={selectedEmiIndices.includes(index)}
-                               onChange={(e) => handleEmiCheckbox(index, e.target.checked, inst.dueAmount)}
-                               className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                             />
-                           </div>
+                          <div className="flex items-center h-full pt-1">
+                            <input
+                              type="checkbox"
+                              checked={selectedEmiIndices.includes(index)}
+                              onChange={(e) => handleEmiCheckbox(index, e.target.checked, inst.dueAmount)}
+                              className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                            />
+                          </div>
                         )}
                       </div>
                     ))}
@@ -946,7 +945,7 @@ export default function FeeCollectionPage() {
               {/* Recent Admissions list */}
               <div className="space-y-3">
                 <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Recent Admissions</h3>
-                
+
                 {isLoadingAdmissions ? (
                   <div className="text-center py-8 text-xs text-slate-400 font-semibold">
                     Loading admissions list...
@@ -964,11 +963,10 @@ export default function FeeCollectionPage() {
                             <span className="text-[9px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-md px-1.5 py-0.5 uppercase font-mono">
                               {student.admissionId || "No ID"}
                             </span>
-                            <span className={`text-[9px] font-bold border rounded-md px-1.5 py-0.5 uppercase tracking-wide ${
-                              student.remainingBalance > 0 
-                                ? "bg-amber-50 text-amber-600 border-amber-100" 
+                            <span className={`text-[9px] font-bold border rounded-md px-1.5 py-0.5 uppercase tracking-wide ${student.remainingBalance > 0
+                                ? "bg-amber-50 text-amber-600 border-amber-100"
                                 : "bg-emerald-50 text-emerald-600 border-emerald-100"
-                            }`}>
+                              }`}>
                               {(student.remainingBalance || 0) > 0 ? "Due Balance" : "Fully Paid"}
                             </span>
                           </div>
@@ -1147,7 +1145,7 @@ export default function FeeCollectionPage() {
                   setActiveModal(null);
                 }} className="text-slate-400 hover:text-slate-600 font-bold text-lg">×</button>
               </div>
-              
+
               <div className="p-6 overflow-y-auto flex-1" id="printable-receipt">
                 <div className="border border-slate-200/80 rounded-2xl p-6 space-y-6 text-xs text-slate-700 bg-white font-semibold">
                   <div className="text-center border-b border-slate-100 pb-4">
@@ -1275,22 +1273,22 @@ export default function FeeCollectionPage() {
                 </svg>
               </button>
             </div>
-            
+
             <div className="p-5 space-y-4">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Due Date</label>
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   value={editEmiDate}
                   onChange={(e) => setEditEmiDate(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Amount (₹)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   value={editEmiAmount}
                   onChange={(e) => setEditEmiAmount(Number(e.target.value))}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
@@ -1301,7 +1299,7 @@ export default function FeeCollectionPage() {
                 <strong>Note:</strong> Any changes to this amount will automatically adjust the remaining EMIs to keep the total fee balanced.
               </div>
             </div>
-            
+
             <div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50">
               <button
                 onClick={() => setEditingEmiIndex(null)}

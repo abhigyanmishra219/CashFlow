@@ -15,8 +15,8 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     let selectedBrand = searchParams.get("brand");
 
-    // Default to user's brand scope if specified and no brand parameter passed
-    if (!selectedBrand && currentUser?.brandScope && currentUser.brandScope !== "All Brands" && currentUser.brandScope !== "All") {
+    // Force user's brand scope if specified, ignoring any query parameter
+    if (currentUser?.brandScope && currentUser.brandScope !== "All Brands" && currentUser.brandScope !== "All") {
       selectedBrand = currentUser.brandScope;
     }
 
@@ -164,6 +164,7 @@ export async function GET(req: Request) {
     counsellorStats.sort((a, b) => b.adm - a.adm || b.rawRev - a.rawRev);
     counsellorStats.forEach((c, idx) => { c.rank = idx + 1; });
 
+    // 5. Enquiries by Source Breakdown
     const sources = [
       "Google Ads",
       "Meta Ads",

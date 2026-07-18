@@ -2,16 +2,21 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Payment from "@/models/Payment";
 import Admission from "@/models/Admission";
+import { getUserFromCookies } from "@/lib/helper";
 
 export async function GET(req: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
     const { searchParams } = new URL(req.url);
     const admissionId = searchParams.get("admissionId");
 
-    let query = {};
+    let query: any = {};
     if (admissionId) {
-      query = { admissionId };
+      query.admissionId = admissionId;
+    }
+    if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
+      query.brand = user.brandScope;
     }
 
     const payments = await Payment.find(query).sort({ createdAt: -1 });
@@ -57,6 +62,7 @@ export async function POST(req: Request) {
       referenceNo,
       remarks,
       company: company || admission.companyAssigned,
+      brand: admission.brand,
       particulars,
     });
     await payment.save();

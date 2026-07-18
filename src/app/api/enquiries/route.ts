@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
+import { getUserFromCookies } from "@/lib/helper";
 
 export async function POST(req: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
 
     const body = await req.json();
+
+    if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
+      body.targetBrand = body.targetBrand || user.brandScope;
+    }
 
     const newEnquiry = await Enquiry.create(body);
 
@@ -26,8 +32,14 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
     
-    const enquiries = await Enquiry.find({}).sort({ createdAt: -1 });
+    let query: any = {};
+    if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
+      query.targetBrand = user.brandScope;
+    }
+
+    const enquiries = await Enquiry.find(query).sort({ createdAt: -1 });
 
     return NextResponse.json(
       { success: true, data: enquiries },

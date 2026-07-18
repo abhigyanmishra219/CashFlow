@@ -3,11 +3,17 @@ import dbConnect from "@/lib/db";
 import Admission from "@/models/Admission";
 import Enquiry from "@/models/Enquiry";
 import Payment from "@/models/Payment";
+import { getUserFromCookies } from "@/lib/helper";
 
 export async function POST(req: NextRequest) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
     const data = await req.json();
+
+    if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
+      data.brand = data.brand || user.brandScope;
+    }
 
     const admission = new Admission(data);
     await admission.save();
@@ -54,23 +60,31 @@ export async function POST(req: NextRequest) {
 export async function GET(req: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
     const { searchParams } = new URL(req.url);
     const q = searchParams.get("q");
+    let brand = searchParams.get("brand");
 
-    let query = {};
+    if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
+      brand = user.brandScope;
+    }
+
+    let query: any = {};
     if (q) {
       const regex = new RegExp(q, "i");
       const cleanQ = q.replace(/[\s-]/g, "");
       const cleanRegex = new RegExp(cleanQ, "i");
 
-      query = {
-        $or: [
-          { fullName: regex },
-          { admissionId: regex },
-          { mobileNumber: cleanRegex },
-          { email: regex },
-        ],
-      };
+      query.$or = [
+        { fullName: regex },
+        { admissionId: regex },
+        { mobileNumber: cleanRegex },
+        { email: regex },
+      ];
+    }
+
+    if (brand && brand !== "all") {
+      query.brand = brand;
     }
 
     const admissions = await Admission.find(query).sort({ createdAt: -1 });
