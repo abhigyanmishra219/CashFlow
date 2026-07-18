@@ -36,6 +36,9 @@ const PaymentSchema = new Schema(
     company: {
       type: String,
     },
+    brand: {
+      type: String,
+    },
     particulars: {
       courseFeeDue: { type: Number, default: 0 },
       registrationFeeDue: { type: Number, default: 0 },

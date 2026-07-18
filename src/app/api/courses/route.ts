@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Course from "@/models/Course";
+import { getUserFromCookies } from "@/lib/helper";
 
 export async function GET() {
   try {
     await dbConnect();
-    const courses = await Course.find({}).sort({ createdAt: -1 });
+    const user = await getUserFromCookies();
+    
+    let query: any = {};
+    if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
+      query.brand = user.brandScope;
+    }
+
+    const courses = await Course.find(query).sort({ createdAt: -1 });
     return NextResponse.json({ success: true, data: courses });
   } catch (error: any) {
     console.error("Error fetching courses:", error);
@@ -19,7 +27,12 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
     const body = await req.json();
+
+    if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
+      body.brand = body.brand || user.brandScope;
+    }
 
     // Check if course code already exists
     if (body.code) {

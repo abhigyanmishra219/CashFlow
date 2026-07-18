@@ -193,8 +193,8 @@ export default function ManagerSidebar() {
                       key={itemIdx}
                       href={item.href}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative ${isActive
-                          ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
-                          : "text-slate-600 hover:bg-slate-50 hover:text-indigo-600"
+                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-indigo-600"
                         }`}
                     >
                       <div
