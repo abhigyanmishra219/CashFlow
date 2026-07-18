@@ -165,15 +165,51 @@ export async function GET(req: Request) {
     counsellorStats.forEach((c, idx) => { c.rank = idx + 1; });
 
     // 5. Enquiries by Source Breakdown
-    const sources = ["Google Ads", "Meta Ads", "Website", "Reference", "Direct Walkin", "Others"];
-    const colors = ["bg-[#2563eb]", "bg-[#06b6d4]", "bg-[#22c55e]", "bg-[#f59e0b]", "bg-[#a855f7]", "bg-slate-300"];
-    const sourceColorsHex = ["#2563eb", "#06b6d4", "#22c55e", "#f59e0b", "#a855f7", "#cbd5e1"];
+    const sources = [
+      "Google Ads",
+      "Meta Ads",
+      "Website",
+      "Seminar",
+      "Hoarding",
+      "Reference",
+      "Paper Ads",
+      "Internet Search",
+      "Direct Walkin",
+      "Call on Database",
+      "Others"
+    ];
+    const colors = [
+      "bg-indigo-500",
+      "bg-blue-500",
+      "bg-rose-500",
+      "bg-[#8b5cf6]",
+      "bg-[#ec4899]",
+      "bg-[#10b981]",
+      "bg-[#f59e0b]",
+      "bg-[#06b6d4]",
+      "bg-[#14b8a6]",
+      "bg-[#9333ea]",
+      "bg-slate-300"
+    ];
+    const sourceColorsHex = [
+      "#6366f1",
+      "#3b82f6",
+      "#f43f5e",
+      "#8b5cf6",
+      "#ec4899",
+      "#10b981",
+      "#f59e0b",
+      "#06b6d4",
+      "#14b8a6",
+      "#9333ea",
+      "#cbd5e1"
+    ];
 
     const enquiriesBySource = await Promise.all(
       sources.map(async (source, i) => {
         const count = await Enquiry.countDocuments({
           ...enquiryQuery,
-          leadSource: source === "Others" ? { $nin: sources.slice(0, 5) } : source
+          leadSource: source === "Others" ? { $nin: sources.slice(0, 10) } : source
         });
         const pctNum = totalLeads > 0 ? (count / totalLeads) * 100 : 0;
         return {
