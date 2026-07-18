@@ -49,6 +49,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check if a super admin already exists
+    const superAdminCount = await User.countDocuments({ role: "super admin" });
+    if (superAdminCount > 0) {
+      return NextResponse.json(
+        { error: "A super admin account already exists. Further super admin registration is disabled." },
+        { status: 403 }
+      );
+    }
+
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Company from "@/models/Company";
+import { getUserFromCookies } from "@/lib/helper";
 
 const INITIAL_COMPANIES = [
   {
@@ -60,7 +61,14 @@ const INITIAL_COMPANIES = [
 export async function GET() {
   try {
     await dbConnect();
-    let list = await Company.find({}).sort({ createdAt: -1 });
+    const user = await getUserFromCookies();
+
+    let query: any = {};
+    if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
+      query.brand = user.brandScope;
+    }
+
+    let list = await Company.find(query).sort({ createdAt: -1 });
 
     if (!list || list.length === 0) {
       list = await Company.insertMany(INITIAL_COMPANIES);
@@ -76,8 +84,14 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
     const body = await req.json();
-    const { name, legalName, gst, pan, bank, annualCapacityCap, address, brand } = body;
+    const { name, legalName, gst, pan, bank, annualCapacityCap, address } = body;
+    let { brand } = body;
+
+    if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
+      brand = brand || user.brandScope;
+    }
 
     if (!name) {
       return NextResponse.json({ error: "Company name is required" }, { status: 400 });

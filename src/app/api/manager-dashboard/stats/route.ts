@@ -15,8 +15,8 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     let selectedBrand = searchParams.get("brand");
 
-    // Default to user's brand scope if specified and no brand parameter passed
-    if (!selectedBrand && currentUser?.brandScope && currentUser.brandScope !== "All Brands" && currentUser.brandScope !== "All") {
+    // Force user's brand scope if specified, ignoring any query parameter
+    if (currentUser?.brandScope && currentUser.brandScope !== "All Brands" && currentUser.brandScope !== "All") {
       selectedBrand = currentUser.brandScope;
     }
 
@@ -165,7 +165,7 @@ export async function GET(req: Request) {
     counsellorStats.forEach((c, idx) => { c.rank = idx + 1; });
 
     // 5. Enquiries by Source Breakdown
-    const sources = ["Website", "Referral", "Social Media", "Walk-in", "Advertisement", "Others"];
+    const sources = ["Google Ads", "Meta Ads", "Website", "Reference", "Direct Walkin", "Others"];
     const colors = ["bg-[#2563eb]", "bg-[#06b6d4]", "bg-[#22c55e]", "bg-[#f59e0b]", "bg-[#a855f7]", "bg-slate-300"];
     const sourceColorsHex = ["#2563eb", "#06b6d4", "#22c55e", "#f59e0b", "#a855f7", "#cbd5e1"];
 
