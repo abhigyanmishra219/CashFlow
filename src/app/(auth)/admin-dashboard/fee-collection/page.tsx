@@ -67,12 +67,13 @@ export default function FeeCollectionPage() {
   const [autoAllocatedCompany, setAutoAllocatedCompany] = useState("");
 
   useEffect(() => {
-    if (selectedStudent && paymentMode !== "Cash" && !selectedStudent.companyAssigned) {
-      fetch(`/api/engine/allocate?brand=${encodeURIComponent(selectedStudent.brand)}`)
+    if (selectedStudent && paymentMode !== "Cash") {
+      fetch(`/api/engine/allocate?brand=${encodeURIComponent(selectedStudent.brand || "")}`)
         .then((res) => res.json())
         .then((data) => {
-          if (data.success) {
+          if (data.success && data.company) {
             setAutoAllocatedCompany(data.company);
+            setSelectedCompany(data.company);
           }
         })
         .catch((err) => console.error("Failed to fetch allocated company", err));
