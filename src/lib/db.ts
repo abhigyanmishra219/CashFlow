@@ -2,18 +2,11 @@ import mongoose from "mongoose";
 import dns from "node:dns";
 
 try {
-  dns.setServers(["8.8.8.8", "8.8.4.4"]);
-} catch {
-  // Fallback to default system DNS if custom setting fails
+  dns.setServers(["8.8.8.8", "1.1.1.1"]);
+} catch (e) {
+  console.warn("Could not set custom DNS servers:", e);
 }
 
-const MONGODB_URI = process.env.MONGODB_URI as string;
-
-/**
- * Global is used here to maintain a cached connection across hot reloads
- * in development. This prevents connections growing exponentially
- * during API Route usage.
- */
 let cached = (global as any).mongoose;
 
 if (!cached) {
@@ -21,6 +14,7 @@ if (!cached) {
 }
 
 async function dbConnect() {
+  const MONGODB_URI = process.env.MONGODB_URI as string;
   if (!MONGODB_URI) {
     throw new Error(
       "Please define the MONGODB_URI environment variable inside .env"
