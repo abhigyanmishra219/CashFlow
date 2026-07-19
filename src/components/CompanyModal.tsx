@@ -25,10 +25,22 @@ export default function CompanyModal({
     bank: "Bank Of India",
     annualCapacityCap: 1949999,
     address: "No listed street, No City, No State, PIN",
-    brand: "Design Gateway",
+    brands: [] as string[],
   });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [availableBrands, setAvailableBrands] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/brands")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.brands) {
+          setAvailableBrands(d.brands.map((b: any) => ({ id: b._id, name: b.name })));
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     if (company) {
@@ -40,7 +52,7 @@ export default function CompanyModal({
         bank: company.bank || "Bank Of India",
         annualCapacityCap: company.capNum ?? 1949999,
         address: company.address || "No listed street, No City, No State, PIN",
-        brand: company.brand || "Design Gateway",
+        brands: company.brands || (company.brand ? [company.brand] : []),
       });
     } else {
       setFormData({
@@ -51,7 +63,7 @@ export default function CompanyModal({
         bank: "Bank Of India",
         annualCapacityCap: 1949999,
         address: "No listed street, No City, No State, PIN",
-        brand: "Design Gateway",
+        brands: [],
       });
     }
   }, [company, isOpen]);
@@ -259,19 +271,52 @@ export default function CompanyModal({
             />
           </div>
 
-          {/* Associated Brand */}
+          {/* Associated Brands */}
           <div>
             <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
               Associated Brand Catalog
             </label>
-            <input
-              type="text"
-              name="brand"
-              value={formData.brand}
-              onChange={handleChange}
-              placeholder="e.g. Design Gateway"
-              className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-            />
+            <div className="flex flex-wrap gap-2 mt-2">
+              {availableBrands.map((b) => {
+                const isSelected = formData.brands.includes(b.name);
+                return (
+                  <label
+                    key={b.id}
+                    className={`cursor-pointer flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-bold transition-all ${
+                      isSelected
+                        ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="hidden"
+                      checked={isSelected}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setFormData((prev) => {
+                          const newBrands = checked
+                            ? [...prev.brands, b.name]
+                            : prev.brands.filter((name) => name !== b.name);
+                          return { ...prev, brands: newBrands };
+                        });
+                      }}
+                    />
+                    <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
+                      {isSelected && (
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    {b.name}
+                  </label>
+                );
+              })}
+              {availableBrands.length === 0 && (
+                <div className="text-xs text-slate-400 italic">No brands available to associate.</div>
+              )}
+            </div>
           </div>
 
           {/* Footer buttons */}

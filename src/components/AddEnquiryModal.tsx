@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useUser } from "@/app/component/context/user-context";
 
 interface AddEnquiryModalProps {
   isOpen: boolean;
@@ -10,9 +11,11 @@ interface AddEnquiryModalProps {
 }
 
 export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnquiryModalProps) {
+  const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [counsellors, setCounsellors] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
   const [expectedCourseFee, setExpectedCourseFee] = useState("₹0");
   const [isDemoScheduled, setIsDemoScheduled] = useState(false);
 
@@ -23,6 +26,15 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
         .then(data => {
           if (data.success) {
             setCounsellors(data.counsellors);
+          }
+        })
+        .catch(console.error);
+
+      fetch("/api/brands")
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setBrands(data.brands);
           }
         })
         .catch(console.error);
@@ -148,7 +160,10 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Target Brand *</label>
                 <select name="targetBrand" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                  <option value="Cadd Mantra">Cadd Mantra</option>
+                  <option value="">-- Select a Brand --</option>
+                  {brands.map(b => (
+                    <option key={b._id || b.name} value={b.name}>{b.name}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -173,15 +188,19 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Assigned CRM Advisor *</label>
-                <select name="assignedCrmAdvisor" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                  <option value="">-- Select Advisor --</option>
-                  {counsellors.map(c => (
-                    <option key={c._id} value={c.name}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
+              {user?.role === "counsellor" ? (
+                <input type="hidden" name="assignedCrmAdvisor" value={user.name} />
+              ) : (
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Assigned CRM Advisor *</label>
+                  <select name="assignedCrmAdvisor" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
+                    <option value="">-- Select Advisor --</option>
+                    {counsellors.map(c => (
+                      <option key={c._id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Lead Source</label>
                 <select name="leadSource" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
@@ -203,9 +222,9 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Priority Level</label>
-                <select name="priorityLevel" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
+                <select name="priorityLevel" defaultValue="Medium" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
                   <option value="High">High</option>
-                  <option value="Medium" selected>Medium</option>
+                  <option value="Medium">Medium</option>
                   <option value="Low">Low</option>
                 </select>
               </div>

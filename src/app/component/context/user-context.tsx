@@ -9,6 +9,7 @@ export interface User {
   email: string;
   role: string;
   brandScope?: string;
+  phone?: string;
 }
 
 interface UserContextType {

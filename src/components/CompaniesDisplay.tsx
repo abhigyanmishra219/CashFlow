@@ -45,7 +45,7 @@ export default function CompaniesDisplay() {
             capNum: cap,
             revenueNum: revenue,
             address: c.address || "No listed street, No City, No State, PIN",
-            brand: c.brand || "Design Gateway",
+            brands: c.brands && c.brands.length > 0 ? c.brands : (c.brand ? [c.brand] : []),
           };
         });
         setCompaniesList(list);
@@ -134,7 +134,7 @@ export default function CompaniesDisplay() {
       `"${c.bank}"`,
       `"${c.capNum}"`,
       `"${c.revenueNum}"`,
-      `"${c.brand}"`,
+      `"${c.brands.join(", ")}"`,
     ]);
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
@@ -590,9 +590,14 @@ export default function CompaniesDisplay() {
                   Associated Brands Catalog
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  <span className="inline-flex items-center text-[10px] font-bold bg-indigo-50 text-indigo-600 rounded-md px-2.5 py-1 border border-indigo-100 select-none">
-                    {selectedCompany.brand}
-                  </span>
+                  {selectedCompany.brands.map((b: string) => (
+                    <span key={b} className="inline-flex items-center text-[10px] font-bold bg-indigo-50 text-indigo-600 rounded-md px-2.5 py-1 border border-indigo-100 select-none">
+                      {b}
+                    </span>
+                  ))}
+                  {selectedCompany.brands.length === 0 && (
+                    <span className="text-xs text-slate-400 italic">No associated brands</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -605,25 +610,7 @@ export default function CompaniesDisplay() {
         </div>
       </div>
 
-      {/* Floating Button (+) */}
-      <div className="fixed bottom-6 right-6 z-10">
-        <button
-          onClick={handleOpenAddModal}
-          title="Register New Company"
-          className="h-12 w-12 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg hover:bg-indigo-500 transition-all select-none"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2.5}
-            stroke="currentColor"
-            className="h-6 w-6"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-        </button>
-      </div>
+
 
       {/* Modal: Add/Edit Company */}
       <CompanyModal

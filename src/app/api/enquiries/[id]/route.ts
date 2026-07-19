@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
+import LostLeadCounter from "@/models/LostLeadCounter";
 
 export async function PATCH(
   req: Request,
@@ -51,6 +52,18 @@ export async function DELETE(
       return NextResponse.json(
         { error: "Enquiry not found" },
         { status: 404 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const isLostLead = searchParams.get('lostLead') === 'true';
+
+    if (isLostLead) {
+      const todayStr = new Date().toISOString().split("T")[0];
+      await LostLeadCounter.findOneAndUpdate(
+        { date: todayStr },
+        { $inc: { count: 1 } },
+        { upsert: true, new: true }
       );
     }
 

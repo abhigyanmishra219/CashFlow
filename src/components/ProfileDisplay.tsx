@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { User } from "../app/component/context/user-context";
+import { User, useUser } from "../app/component/context/user-context";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ProfileDisplayProps {
@@ -12,13 +12,56 @@ interface ProfileDisplayProps {
 }
 
 export default function ProfileDisplay({ isOpen, onClose, user, logout }: ProfileDisplayProps) {
+  const { login } = useUser();
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Removed if (!isOpen) return null; to handle AnimatePresence
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editName, setEditName] = useState(user.name);
+  const [editEmail, setEditEmail] = useState(user.email);
+  const [editPhone, setEditPhone] = useState(user.phone || "");
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setEditName(user.name);
+      setEditEmail(user.email);
+      setEditPhone(user.phone || "");
+      setIsEditingProfile(false);
+      setError("");
+      setSuccess("");
+      setOldPassword("");
+      setNewPassword("");
+    }
+  }, [isOpen, user]);
+
+  const handleUpdateProfile = async () => {
+    setError("");
+    setSuccess("");
+    setProfileLoading(true);
+    try {
+      const response = await fetch("/api/auth/update-profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editName, email: editEmail, phone: editPhone }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error || "Failed to update profile.");
+      } else {
+        setSuccess("Profile updated successfully!");
+        login(data.user);
+        setIsEditingProfile(false);
+      }
+    } catch (err) {
+      setError("A network error occurred. Please try again.");
+    } finally {
+      setProfileLoading(false);
+    }
+  };
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,8 +133,17 @@ export default function ProfileDisplay({ isOpen, onClose, user, logout }: Profil
           <div className="h-14 w-14 rounded-full bg-indigo-600 text-white font-extrabold text-lg flex items-center justify-center border border-indigo-500 shadow-md">
             {initialLetter}
           </div>
-          <div>
-            <h4 className="text-base font-extrabold text-slate-800 leading-tight">{user.name}</h4>
+          <div className="flex-1">
+            {isEditingProfile ? (
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full text-base font-extrabold text-slate-800 leading-tight bg-white border border-slate-200 rounded-md px-2 py-1 mb-1 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+              />
+            ) : (
+              <h4 className="text-base font-extrabold text-slate-800 leading-tight">{user.name}</h4>
+            )}
             <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md mt-1.5 inline-block">
               {user.role}
             </span>
@@ -102,12 +154,61 @@ export default function ProfileDisplay({ isOpen, onClose, user, logout }: Profil
         <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3">
           <div className="flex justify-between items-center text-xs">
             <span className="font-bold text-slate-400 uppercase tracking-wider">Email Address</span>
-            <span className="font-semibold text-slate-700 select-all">{user.email}</span>
+            {isEditingProfile ? (
+              <input
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                className="w-1/2 bg-white border border-slate-200 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+              />
+            ) : (
+              <span className="font-semibold text-slate-700 select-all">{user.email}</span>
+            )}
           </div>
           <div className="border-t border-slate-100"></div>
           <div className="flex justify-between items-center text-xs">
             <span className="font-bold text-slate-400 uppercase tracking-wider">Mobile Number</span>
-            <span className="font-semibold text-slate-700">+91 98765 43210</span>
+            {isEditingProfile ? (
+              <input
+                type="tel"
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+                className="w-1/2 bg-white border border-slate-200 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+              />
+            ) : (
+              <span className="font-semibold text-slate-700">{user.phone || "Not set"}</span>
+            )}
+          </div>
+          <div className="pt-2 flex justify-end">
+            {isEditingProfile ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProfile(false)}
+                  disabled={profileLoading}
+                  className="text-xs font-bold text-slate-500 hover:text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 bg-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUpdateProfile}
+                  disabled={profileLoading}
+                  className="text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg"
+                >
+                  {profileLoading ? "Saving..." : "Save"}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsEditingProfile(true)}
+                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-500 uppercase tracking-wider"
+              >
+                Edit Profile
+              </button>
+            )}
           </div>
         </div>
 

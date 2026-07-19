@@ -450,17 +450,7 @@ export default function CourseDisplay() {
         </div>
       </div>
 
-      {/* Floating Plus button */}
-      <div className="fixed bottom-6 right-6">
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="h-12 w-12 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg hover:bg-indigo-500 transition-all select-none"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-6 w-6">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-        </button>
-      </div>
+
 
       {/* Add Course Modal */}
       <AddCourseModal

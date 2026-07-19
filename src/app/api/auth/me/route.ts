@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyJWT } from "@/lib/jwt";
+import dbConnect from "@/lib/db";
+import User from "@/models/User";
 
 export async function GET() {
   try {
@@ -24,13 +26,24 @@ export async function GET() {
       );
     }
 
+    await dbConnect();
+    const dbUser = await User.findById(decoded.id).lean();
+
+    if (!dbUser) {
+      return NextResponse.json(
+        { authenticated: false, error: "User not found in database" },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json({
       authenticated: true,
       user: {
-        id: decoded.id,
-        email: decoded.email,
-        name: decoded.name,
-        role: decoded.role,
+        id: dbUser._id.toString(),
+        email: dbUser.email,
+        name: dbUser.name,
+        role: dbUser.role,
+        phone: (dbUser as any).phone || "",
       },
     });
   } catch (error) {

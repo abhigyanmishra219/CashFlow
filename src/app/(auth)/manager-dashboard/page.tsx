@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import ManagerSidebar from "@/components/ManagerSidebar";
 import { useUser } from "../../component/context/user-context";
 import ProfileDisplay from "@/components/ProfileDisplay";
+import CommandPalette from "@/components/CommandPalette";
 
 interface DashboardStats {
   selectedBrand: string;
@@ -58,7 +59,7 @@ export default function ManagerDashboard() {
   const [selectedBrand, setSelectedBrand] = useState<string>("all");
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   // Fetch Dashboard Stats from Backend API
   const fetchStats = async (brandParam?: string) => {
@@ -81,6 +82,17 @@ export default function ManagerDashboard() {
   useEffect(() => {
     fetchStats(selectedBrand);
   }, [selectedBrand]);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setIsCommandPaletteOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
 
   const displayName = user?.name || "Loading...";
   const displayRole = user?.role || "Brand Manager";
@@ -157,35 +169,24 @@ export default function ManagerDashboard() {
           </div>
 
           <div className="flex items-center gap-6">
-            {/* Brand Filter Selector */}
-            <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
-              </svg>
-              <select
-                value={selectedBrand}
-                onChange={(e) => setSelectedBrand(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
-              >
-                <option value="all">All Brands</option>
-                {stats?.availableBrands?.map((b) => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </select>
-            </div>
 
-            {/* Search Input */}
+
+            {/* Search Input Button */}
             <div className="relative hidden md:block">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-              </svg>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search..."
-                className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 w-56 transition-all"
-              />
+              <button
+                onClick={() => setIsCommandPaletteOpen(true)}
+                className="flex items-center justify-between px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors w-56 text-slate-400 group"
+              >
+                <div className="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 group-hover:text-indigo-500 transition-colors">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                  </svg>
+                  Search...
+                </div>
+                <span className="text-[10px] font-bold text-slate-400/80 uppercase">
+                  CTRL+K
+                </span>
+              </button>
             </div>
 
             {/* Profile Avatar */}
@@ -203,6 +204,8 @@ export default function ManagerDashboard() {
             </div>
           </div>
         </header>
+
+        <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} />
 
         {/* Dashboard Content */}
         <main className="p-8 pb-32 space-y-6">
@@ -266,7 +269,7 @@ export default function ManagerDashboard() {
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <h3 className="text-xs font-bold text-slate-500 mb-1">Revenue</h3>
-                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.revenue ?? "₹0 L")}</p>
+                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.revenue ?? "â‚¹0 L")}</p>
                 </div>
                 <div className="h-8 w-8 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" /></svg>
@@ -279,7 +282,7 @@ export default function ManagerDashboard() {
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <h3 className="text-xs font-bold text-slate-500 mb-1">Collection</h3>
-                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.collection ?? "₹0 L")}</p>
+                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.collection ?? "â‚¹0 L")}</p>
                 </div>
                 <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" /></svg>
@@ -292,7 +295,7 @@ export default function ManagerDashboard() {
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <h3 className="text-xs font-bold text-slate-500 mb-1">Pending Fees</h3>
-                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.pendingFees ?? "₹0 L")}</p>
+                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.pendingFees ?? "â‚¹0 L")}</p>
                 </div>
                 <div className="h-8 w-8 bg-rose-50 text-rose-500 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>

@@ -36,7 +36,7 @@ export async function GET(req: Request) {
     
     let query: any = {};
     if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
-      query.targetBrand = user.brandScope;
+      query.targetBrand = { $regex: new RegExp(`^${user.brandScope}$`, "i") };
     }
 
     const enquiries = await Enquiry.find(query).sort({ createdAt: -1 });

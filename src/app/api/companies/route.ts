@@ -1,62 +1,8 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Company from "@/models/Company";
+import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
-
-const INITIAL_COMPANIES = [
-  {
-    companyId: "COMP-1783598625379",
-    name: "Institue of Creative Studies",
-    legalName: "Institue of Creative Studies",
-    gst: "Not Provided",
-    pan: "Not Provided",
-    bank: "Bank Of India",
-    annualCapacityCap: 1949999,
-    collectedRevenue: 0,
-    address: "No listed street, No City, No State, PIN",
-    brand: "Design Gateway",
-    status: "ACTIVE",
-  },
-  {
-    companyId: "COMP-1783590745092",
-    name: "Designers Choice",
-    legalName: "Designers Choice",
-    gst: "Not Provided",
-    pan: "Not Provided",
-    bank: "State Bank of India",
-    annualCapacityCap: 1949999,
-    collectedRevenue: 0,
-    address: "No listed street, No City, No State, PIN",
-    brand: "Design Gateway",
-    status: "ACTIVE",
-  },
-  {
-    companyId: "COMP-1783591173176",
-    name: "Sling Shot Technologies",
-    legalName: "Sling Shot Technologies",
-    gst: "Not Provided",
-    pan: "Not Provided",
-    bank: "HDFC Bank",
-    annualCapacityCap: 1949999,
-    collectedRevenue: 0,
-    address: "No listed street, No City, No State, PIN",
-    brand: "Design Gateway",
-    status: "ACTIVE",
-  },
-  {
-    companyId: "E9B83E19-3591-4E7B-88D5-69CCABB13ADC",
-    name: "Enterprise Test Company",
-    legalName: "Enterprise Test Company",
-    gst: "Not Provided",
-    pan: "Not Provided",
-    bank: "ICICI Bank",
-    annualCapacityCap: 1949999,
-    collectedRevenue: 0,
-    address: "No listed street, No City, No State, PIN",
-    brand: "Design Gateway",
-    status: "ACTIVE",
-  },
-];
 
 export async function GET() {
   try {
@@ -65,14 +11,32 @@ export async function GET() {
 
     let query: any = {};
     if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
-      query.brand = user.brandScope;
+      const scopeBrand = await Brand.findOne({ name: user.brandScope }).lean();
+      const scopeBrandCompanies = scopeBrand?.companies || [];
+      query.$or = [
+        { brand: user.brandScope }, 
+        { brands: user.brandScope },
+        { name: { $in: scopeBrandCompanies } }
+      ];
     }
 
-    let list = await Company.find(query).sort({ createdAt: -1 });
-
-    if (!list || list.length === 0) {
-      list = await Company.insertMany(INITIAL_COMPANIES);
-    }
+    let list = await Company.find(query).sort({ createdAt: -1 }).lean();
+    
+    // Reverse mapping: Find brands that have associated this company
+    const allBrands = await Brand.find({}).lean();
+    list = list.map((company: any) => {
+      const reversedBrands = allBrands
+        .filter((b: any) => b.companies && b.companies.includes(company.name))
+        .map((b: any) => b.name);
+      
+      const finalBrandsSet = new Set([...(company.brands || []), ...reversedBrands]);
+      if (company.brand) finalBrandsSet.add(company.brand); // backward compatibility
+      
+      return {
+        ...company,
+        brands: Array.from(finalBrandsSet)
+      };
+    });
 
     return NextResponse.json({ success: true, companies: list });
   } catch (error: any) {
@@ -87,10 +51,14 @@ export async function POST(req: Request) {
     const user = await getUserFromCookies();
     const body = await req.json();
     const { name, legalName, gst, pan, bank, annualCapacityCap, address } = body;
-    let { brand } = body;
+    let { brands, brand } = body;
+
+    let finalBrands = Array.isArray(brands) ? brands : brand ? [brand] : [];
 
     if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
-      brand = brand || user.brandScope;
+      if (finalBrands.length === 0) {
+        finalBrands = [user.brandScope];
+      }
     }
 
     if (!name) {
@@ -105,7 +73,7 @@ export async function POST(req: Request) {
       bank: bank || "Bank Of India",
       annualCapacityCap: annualCapacityCap ? Number(annualCapacityCap) : 1949999,
       address: address || "No listed street, No City, No State, PIN",
-      brand: brand || "Design Gateway",
+      brands: finalBrands,
       status: "ACTIVE",
     });
 

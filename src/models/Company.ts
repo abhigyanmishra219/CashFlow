@@ -43,10 +43,9 @@ const CompanySchema = new Schema(
       default: "No listed street, No City, No State, PIN",
       trim: true,
     },
-    brand: {
-      type: String,
-      default: "Design Gateway",
-      trim: true,
+    brands: {
+      type: [String],
+      default: [],
     },
     status: {
       type: String,
@@ -66,6 +65,7 @@ CompanySchema.pre("save", async function () {
   }
 });
 
-const Company = mongoose.models.Company || mongoose.model("Company", CompanySchema);
+delete mongoose.models.Company;
+const Company = mongoose.model("Company", CompanySchema);
 
 export default Company;

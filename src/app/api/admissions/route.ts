@@ -3,6 +3,8 @@ import dbConnect from "@/lib/db";
 import Admission from "@/models/Admission";
 import Enquiry from "@/models/Enquiry";
 import Payment from "@/models/Payment";
+import Company from "@/models/Company";
+import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
 
 export async function POST(req: NextRequest) {
@@ -14,6 +16,48 @@ export async function POST(req: NextRequest) {
     if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
       data.brand = data.brand || user.brandScope;
     }
+
+    // Auto Company Allocation Engine
+    let finalCompany = "Cash";
+
+    if (data.paymentMode && data.paymentMode !== "Cash") {
+      const brandDoc = await Brand.findOne({ name: data.brand }).lean();
+      const brandCompanies = brandDoc?.companies || [];
+      
+      const availableCompanies = await Company.find({
+        $or: [
+          { brand: data.brand },
+          { brands: data.brand },
+          { name: { $in: brandCompanies } }
+        ],
+        status: "ACTIVE"
+      });
+
+      if (availableCompanies.length > 0) {
+        // Sort by remaining capacity descending
+        availableCompanies.sort((a, b) => {
+          const capA = (a.annualCapacityCap || 1949999) - (a.collectedRevenue || 0);
+          const capB = (b.annualCapacityCap || 1949999) - (b.collectedRevenue || 0);
+          return capB - capA;
+        });
+        
+        finalCompany = availableCompanies[0].name;
+      } else {
+        finalCompany = "Unallocated";
+      }
+
+      // Update Ledger (increment collectedRevenue)
+      if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated") {
+        if (Number(data.amountReceivedToday) > 0) {
+          await Company.updateOne(
+            { name: finalCompany },
+            { $inc: { collectedRevenue: Number(data.amountReceivedToday) } }
+          );
+        }
+      }
+    }
+
+    data.companyAssigned = finalCompany;
 
     const admission = new Admission(data);
     await admission.save();
@@ -31,7 +75,8 @@ export async function POST(req: NextRequest) {
         amountReceived: Number(data.amountReceivedToday),
         paymentMode: data.paymentMode || "Cash",
         referenceNo: data.transactionNo || "N/A",
-        company: data.companyAssigned || "Unknown",
+        company: finalCompany,
+        brand: data.brand,
         paymentDate: admission.paymentDate || new Date(),
         particulars: {
           courseFeeDue: 0,

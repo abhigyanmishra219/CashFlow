@@ -34,7 +34,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
   const [duration, setDuration] = useState("");
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
   const [academicYear, setAcademicYear] = useState(new Date().getFullYear() + " - " + (new Date().getFullYear() + 1).toString().slice(2));
-  const [courseFee, setCourseFee] = useState(Number(lead?.expectedCourseFee?.replace(/[^0-9]/g, '')) || 0);
+  const [courseFee, setCourseFee] = useState(Math.floor(Number(lead?.expectedCourseFee?.replace(/[^0-9.]/g, ''))) || 0);
   const [admissionDate, setAdmissionDate] = useState(new Date().toISOString().split("T")[0]);
   const [companyAssigned, setCompanyAssigned] = useState("");
 
@@ -62,6 +62,20 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
   const [numInstallments, setNumInstallments] = useState(1);
   const [installmentAmount, setInstallmentAmount] = useState(0);
   const [firstDueDate, setFirstDueDate] = useState("");
+  const [autoAllocatedCompany, setAutoAllocatedCompany] = useState("");
+
+  useEffect(() => {
+    if (isOpen && paymentMode !== "Cash" && brand) {
+      fetch(`/api/engine/allocate?brand=${encodeURIComponent(brand)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setAutoAllocatedCompany(data.company);
+          }
+        })
+        .catch(err => console.error("Failed to fetch allocated company", err));
+    }
+  }, [isOpen, paymentMode, brand]);
 
   useEffect(() => {
     if (hasEmi && numInstallments > 0) {
@@ -90,7 +104,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
       setCounsellor(lead.assignedCrmAdvisor || "");
       setBrand(lead.targetBrand || "");
       setCourse(lead.targetCourse || "");
-      setCourseFee(Number(lead.expectedCourseFee?.replace(/[^0-9]/g, '')) || 0);
+      setCourseFee(Math.floor(Number(lead.expectedCourseFee?.replace(/[^0-9.]/g, ''))) || 0);
       
       setParentName("");
       setAddress("");
@@ -320,7 +334,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                         if (selectedCourseObj) {
                           if (selectedCourseObj.duration) setDuration(selectedCourseObj.duration);
                           if (selectedCourseObj.fee) {
-                            const numFee = Number(selectedCourseObj.fee.replace(/[^0-9]/g, '')) || 0;
+                            const numFee = Math.floor(Number(selectedCourseObj.fee.replace(/[^0-9.]/g, ''))) || 0;
                             setCourseFee(numFee);
                           }
                         }
@@ -357,11 +371,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500">Course Fee (₹) <span className="text-rose-500">*</span></label>
-                    <input type="number" value={courseFee} onChange={e=>setCourseFee(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-slate-50" />
-                  </div>
-                  <div className="flex flex-col gap-1.5 md:col-span-3">
-                    <label className="text-xs font-bold text-slate-500">Company Assigned <span className="text-rose-500">*</span></label>
-                    <input type="text" value={companyAssigned} onChange={e=>setCompanyAssigned(e.target.value)} placeholder="e.g. Design Gateway Pvt Ltd" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
+                    <input type="number" step="any" value={courseFee} onChange={e=>setCourseFee(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-slate-50" />
                   </div>
                 </div>
               </div>
@@ -387,7 +397,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500">Scholarship Amount (₹)</label>
-                    <input type="number" value={scholarshipAmount} onChange={e=>setScholarshipAmount(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
+                    <input type="number" step="any" value={scholarshipAmount} onChange={e=>setScholarshipAmount(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500">Discount Type</label>
@@ -404,7 +414,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500">Discount Amount (₹)</label>
-                    <input type="number" value={discountAmount} onChange={e=>setDiscountAmount(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
+                    <input type="number" step="any" value={discountAmount} onChange={e=>setDiscountAmount(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
                   </div>
                 </div>
 
@@ -436,7 +446,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                 </h2>
               </div>
               <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500">Payment Mode <span className="text-rose-500">*</span></label>
                     <select value={paymentMode} onChange={e=>setPaymentMode(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white">
@@ -446,13 +456,26 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                       <option value="Credit Card">Credit Card</option>
                     </select>
                   </div>
+                  <div className="flex flex-col gap-1.5 md:col-span-1">
+                    <label className="text-xs font-bold text-slate-500">Company Allocation</label>
+                    <div className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 bg-slate-50 cursor-not-allowed flex items-center justify-between">
+                      <span className="truncate">
+                        {paymentMode === "Cash" ? "Cash (Unallocated)" : (autoAllocatedCompany || "Allocating...")}
+                      </span>
+                      {paymentMode !== "Cash" && autoAllocatedCompany && (
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-emerald-500 shrink-0">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
                   <div className="flex flex-col gap-1.5 md:col-span-2">
                     <label className="text-xs font-bold text-slate-500">Transaction / Reference No. <span className="text-rose-500">*</span></label>
                     <input type="text" value={transactionNo} onChange={e=>setTransactionNo(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500">Amount Received Today (₹) <span className="text-rose-500">*</span></label>
-                    <input type="number" value={amountReceivedToday} onChange={e=>setAmountReceivedToday(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-indigo-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-indigo-50" />
+                    <input type="number" step="any" value={amountReceivedToday} onChange={e=>setAmountReceivedToday(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-indigo-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-indigo-50" />
                   </div>
                 </div>
 

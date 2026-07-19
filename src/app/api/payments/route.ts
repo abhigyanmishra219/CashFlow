@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Payment from "@/models/Payment";
 import Admission from "@/models/Admission";
+import Company from "@/models/Company";
+import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
 
 export async function GET(req: Request) {
@@ -53,6 +55,57 @@ export async function POST(req: Request) {
       );
     }
 
+    // Auto Company Allocation Engine
+    let finalCompany = "Cash";
+
+    if (paymentMode !== "Cash") {
+      const previousNonCashPayment = await Payment.findOne({ 
+        admissionId, 
+        paymentMode: { $ne: "Cash" },
+        company: { $nin: ["Cash", "Unallocated"] } 
+      });
+
+      if (previousNonCashPayment && previousNonCashPayment.company) {
+        finalCompany = previousNonCashPayment.company;
+      } else {
+        const brandDoc = await Brand.findOne({ name: admission.brand }).lean();
+        const brandCompanies = brandDoc?.companies || [];
+        
+        const availableCompanies = await Company.find({
+          $or: [
+            { brand: admission.brand },
+            { brands: admission.brand },
+            { name: { $in: brandCompanies } }
+          ],
+          status: "ACTIVE"
+        });
+
+        if (availableCompanies.length > 0) {
+          // Sort by remaining capacity descending
+          availableCompanies.sort((a, b) => {
+            const capA = (a.annualCapacityCap || 1949999) - (a.collectedRevenue || 0);
+            const capB = (b.annualCapacityCap || 1949999) - (b.collectedRevenue || 0);
+            return capB - capA;
+          });
+          
+          finalCompany = availableCompanies[0].name;
+        } else {
+          finalCompany = company || "Unallocated";
+        }
+      }
+
+      // Update Ledger (increment collectedRevenue)
+      if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated") {
+        await Company.updateOne(
+          { name: finalCompany },
+          { $inc: { collectedRevenue: Number(amountReceived) } }
+        );
+      }
+      
+      // Lock future payments
+      admission.companyAssigned = finalCompany;
+    }
+
     // 2. Create the payment record
     const payment = new Payment({
       admissionId,
@@ -61,7 +114,7 @@ export async function POST(req: Request) {
       paymentMode,
       referenceNo,
       remarks,
-      company: company || admission.companyAssigned,
+      company: finalCompany,
       brand: admission.brand,
       particulars,
     });

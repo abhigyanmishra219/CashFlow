@@ -5,6 +5,7 @@ import { useUser } from "../../component/context/user-context";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
 import Link from "next/link";
 import ProfileDisplay from "@/components/ProfileDisplay";
+import CommandPalette from "@/components/CommandPalette";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 
 const containerVariants: Variants = {
@@ -61,6 +62,18 @@ export default function CounsellorDashboardPage() {
   const [birthdays, setBirthdays] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setIsCommandPaletteOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -255,7 +268,32 @@ export default function CounsellorDashboardPage() {
   useEffect(() => {
     const dayOfYear = Math.floor((new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 1000 / 60 / 60 / 24);
     setTodaysQuote(MOTIVATIONAL_QUOTES[dayOfYear % MOTIVATIONAL_QUOTES.length]);
+    
+    return () => {
+      // Need to cleanup the event listener here if we added it in the same useEffect
+      const handleGlobalKeyDown = (e: KeyboardEvent) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+          e.preventDefault();
+          setIsCommandPaletteOpen(true);
+        }
+      };
+      window.removeEventListener("keydown", handleGlobalKeyDown);
+    };
   }, []);
+
+  const handleMarkLost = async (enquiryId: string) => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      await fetch('/api/enquiries/mark-lost', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enquiryId, date: today })
+      });
+      setRecentEnquiries(prev => prev.filter((req: any) => req._id !== enquiryId));
+    } catch (error) {
+      console.error("Failed to mark lead as lost:", error);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
@@ -273,17 +311,20 @@ export default function CounsellorDashboardPage() {
 
           <div className="flex items-center gap-5">
             <div className="relative hidden md:block">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search anything..."
-                className="pl-9 pr-12 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400 border border-slate-200 bg-white rounded px-1.5 py-0.5">
-                Ctrl + K
-              </span>
+              <button 
+                onClick={() => setIsCommandPaletteOpen(true)}
+                className="relative w-full sm:w-64 flex items-center justify-between pl-3 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 group"
+              >
+                <div className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 mr-2 group-hover:text-purple-500 transition-colors">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
+                  </svg>
+                  Search anything...
+                </div>
+                <span className="flex items-center pointer-events-none text-[10px] font-bold text-slate-400/80 uppercase bg-white border border-slate-200 px-1.5 py-0.5 rounded">
+                  Ctrl + K
+                </span>
+              </button>
             </div>
 
             <div className="relative">
@@ -375,6 +416,8 @@ export default function CounsellorDashboardPage() {
           <ProfileDisplay isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} logout={logout} />
         </header>
 
+        <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} />
+
         {/* Dashboard Content */}
         <motion.div 
           className="p-6 space-y-6"
@@ -417,16 +460,12 @@ export default function CounsellorDashboardPage() {
                 {/* Visual Funnel */}
                 <div className="flex flex-col items-center gap-1 w-32">
                   <div className="w-full h-8 bg-blue-500 rounded-sm"></div>
-                  <div className="w-5/6 h-8 bg-emerald-400 rounded-sm"></div>
-                  <div className="w-4/6 h-8 bg-teal-400 rounded-sm"></div>
-                  <div className="w-1/2 h-8 bg-amber-400 rounded-sm"></div>
+                  <div className="w-2/3 h-8 bg-amber-400 rounded-sm"></div>
                   <div className="w-1/3 h-8 bg-purple-500 rounded-sm"></div>
                 </div>
                 {/* Legend */}
                 <div className="flex-1 space-y-2">
                   <PipelineStat label="New Lead" value={pipeline.newLead} percent={getPercent(pipeline.newLead, totalPipeline)} color="bg-blue-500" />
-                  <PipelineStat label="Contacted" value={pipeline.contacted} percent={getPercent(pipeline.contacted, totalPipeline)} color="bg-emerald-400" />
-                  <PipelineStat label="Interested" value={pipeline.interested} percent={getPercent(pipeline.interested, totalPipeline)} color="bg-teal-400" />
                   <PipelineStat label="Demo Attended" value={pipeline.demoAttended} percent={getPercent(pipeline.demoAttended, totalPipeline)} color="bg-amber-400" />
                   <PipelineStat label="Admission" value={pipeline.admission} percent={getPercent(pipeline.admission, totalPipeline)} color="bg-purple-500" />
                 </div>
@@ -434,7 +473,7 @@ export default function CounsellorDashboardPage() {
             </DashboardCard>
 
             {/* Today's Follow-ups */}
-            <DashboardCard title="Today's Follow-ups" actionText="View All">
+            <DashboardCard title="Today's Follow-ups">
               <div className="space-y-4 mt-4">
                 {todayFollowUps.length > 0 ? todayFollowUps.map((f: any, i: number) => (
                   <FollowUpItem key={f.id || i} name={f.name} time={f.time} action={f.action} actionColor="text-emerald-600 bg-emerald-50 border-emerald-100" />
@@ -445,7 +484,7 @@ export default function CounsellorDashboardPage() {
             </DashboardCard>
 
             {/* My Tasks */}
-            <DashboardCard title="My Tasks" actionText="View All">
+            <DashboardCard title="My Tasks">
               <div className="space-y-4 mt-4">
                 {tasks.length > 0 ? tasks.map((t: any, i: number) => (
                   <TaskItem key={t.id || i} text={t.text} time={t.time} completed={t.completed} />
@@ -456,10 +495,17 @@ export default function CounsellorDashboardPage() {
             </DashboardCard>
 
             {/* Recent Enquiries */}
-            <DashboardCard title="Recent Enquiries" actionText="View All">
+            <DashboardCard title="Recent Enquiries">
               <div className="space-y-4 mt-4">
                 {recentEnquiries.length > 0 ? recentEnquiries.map((e: any, i: number) => (
-                  <EnquiryItem key={e._id || i} name={e.studentFullName} source={e.leadSource || "Website"} time={new Date(e.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} />
+                  <EnquiryItem 
+                    key={e._id || i} 
+                    id={e._id}
+                    name={e.studentFullName} 
+                    source={e.leadSource || "Website"} 
+                    time={new Date(e.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 
+                    onMarkLost={handleMarkLost}
+                  />
                 )) : (
                   <p className="text-xs text-slate-400">No recent enquiries.</p>
                 )}
@@ -494,7 +540,7 @@ export default function CounsellorDashboardPage() {
             </DashboardCard>
 
             {/* Follow-up Reminders */}
-            <DashboardCard title="Follow-up Reminders" actionText="View All">
+            <DashboardCard title="Follow-up Reminders">
               <div className="space-y-4 mt-4">
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-2 rounded-full bg-rose-500 shrink-0"></div>
@@ -508,7 +554,7 @@ export default function CounsellorDashboardPage() {
             </DashboardCard>
 
             {/* Upcoming Birthdays */}
-            <DashboardCard title="Upcoming Birthdays" actionText="View All">
+            <DashboardCard title="Upcoming Birthdays">
               <div className="space-y-4 mt-4">
                 {birthdays.length > 0 ? birthdays.map((b: any) => (
                   <div key={b.id} className="flex items-center justify-between">
@@ -666,14 +712,26 @@ function TaskItem({ text, time, completed }: any) {
   );
 }
 
-function EnquiryItem({ name, source, time }: any) {
+function EnquiryItem({ id, name, source, time, onMarkLost }: any) {
   return (
     <div className="flex items-center justify-between group">
-      <div className="flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-slate-400">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-        </svg>
-        <p className="text-xs font-bold text-slate-800">{name}</p>
+      <div className="flex items-center gap-3">
+        <input 
+          type="checkbox" 
+          title="Mark as Lost"
+          className="w-4 h-4 rounded border-slate-300 text-rose-500 focus:ring-rose-500 cursor-pointer hover:border-rose-400"
+          onChange={(e) => {
+            if (e.target.checked && id && onMarkLost) {
+              onMarkLost(id);
+            }
+          }}
+        />
+        <div className="flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-slate-400">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+          </svg>
+          <p className="text-xs font-bold text-slate-800">{name}</p>
+        </div>
       </div>
       <div className="flex items-center gap-4">
         <span className="text-[10px] font-semibold text-slate-500 w-16">{source}</span>

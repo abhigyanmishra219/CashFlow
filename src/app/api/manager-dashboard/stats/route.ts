@@ -15,10 +15,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     let selectedBrand = searchParams.get("brand");
 
-    // Force user's brand scope if specified, ignoring any query parameter
-    if (currentUser?.brandScope && currentUser.brandScope !== "All Brands" && currentUser.brandScope !== "All") {
-      selectedBrand = currentUser.brandScope;
-    }
+
 
     // Get list of all available brands
     const companyBrands = await Company.distinct("brand");
@@ -30,13 +27,32 @@ export async function GET(req: Request) {
         brandSet.add(b.trim());
       }
     });
-    const availableBrands = Array.from(brandSet);
+    let availableBrands = Array.from(brandSet);
+
+    let allowedBrands: string[] | null = null;
+    if (currentUser?.brandScope && currentUser.brandScope !== "All Brands" && currentUser.brandScope !== "All") {
+      allowedBrands = currentUser.brandScope.split(",").map((b: string) => b.trim());
+      availableBrands = availableBrands.filter((b: string) => 
+        allowedBrands!.some((ab: string) => ab.toLowerCase() === b.toLowerCase())
+      );
+    }
 
     // Build filter queries
     const filterByBrand = selectedBrand && selectedBrand !== "all" && selectedBrand !== "All Brands";
-    const enquiryQuery: any = filterByBrand ? { targetBrand: selectedBrand } : {};
-    const admissionQuery: any = filterByBrand ? { brand: selectedBrand } : {};
-    const companyQuery: any = filterByBrand ? { brand: selectedBrand } : {};
+    const enquiryQuery: any = {};
+    const admissionQuery: any = {};
+    const companyQuery: any = {};
+
+    if (filterByBrand) {
+      enquiryQuery.targetBrand = { $regex: new RegExp(`^${selectedBrand}$`, 'i') };
+      admissionQuery.brand = { $regex: new RegExp(`^${selectedBrand}$`, 'i') };
+      companyQuery.brand = { $regex: new RegExp(`^${selectedBrand}$`, 'i') };
+    } else if (allowedBrands) {
+      const regexArray = allowedBrands.map(b => new RegExp(`^${b}$`, 'i'));
+      enquiryQuery.targetBrand = { $in: regexArray };
+      admissionQuery.brand = { $in: regexArray };
+      companyQuery.brand = { $in: regexArray };
+    }
 
     // 1. KPI Calculations
     const totalLeads = await Enquiry.countDocuments(enquiryQuery);
@@ -83,8 +99,7 @@ export async function GET(req: Request) {
       { stage: "Counselling Scheduled", status: "Counselling Scheduled", color: "bg-[#eab308]" },
       { stage: "Interested", status: "Interested", color: "bg-[#a855f7]" },
       { stage: "Demo Attended", status: "Demo Attended", color: "bg-[#06b6d4]" },
-      { stage: "Admitted", status: "Admitted", color: "bg-[#10b981]" },
-      { stage: "Lost", status: "Lost", color: "bg-[#ef4444]" },
+      { stage: "Admitted", status: "Admitted", color: "bg-[#10b981]" }
     ];
 
     const pipeline = await Promise.all(
@@ -113,17 +128,13 @@ export async function GET(req: Request) {
         createdAt: { $gte: dayStart, $lte: dayEnd }
       });
 
-      const dayLost = await Enquiry.countDocuments({
-        ...enquiryQuery,
-        status: "Lost",
-        updatedAt: { $gte: dayStart, $lte: dayEnd }
-      });
+      const dayLost = await import("@/models/LostLeadCounter").then(m => m.default.findOne({ date: dayStart.toISOString().split("T")[0] }).lean());
 
       trendDays.push({
         dateLabel: dayLabel,
         newLeads: dayNewLeads,
         admissions: dayAdmissions,
-        lostLeads: dayLost
+        lostLeads: dayLost ? dayLost.count : 0
       });
     }
 
