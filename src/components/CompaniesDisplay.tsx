@@ -300,16 +300,7 @@ export default function CompaniesDisplay() {
               >
                 Standard Ledger List
               </button>
-              <button
-                onClick={() => setActiveTab("heatmap")}
-                className={`pb-2 px-4 border-b-2 transition-all ${
-                  activeTab === "heatmap"
-                    ? "border-indigo-600 text-indigo-600"
-                    : "border-transparent text-slate-400 hover:text-slate-600"
-                }`}
-              >
-                Capacity Heatmap Grid
-              </button>
+
             </div>
           </div>
 

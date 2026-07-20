@@ -65,15 +65,21 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
   const [autoAllocatedCompany, setAutoAllocatedCompany] = useState("");
 
   useEffect(() => {
-    if (isOpen && paymentMode !== "Cash" && brand) {
-      fetch(`/api/engine/allocate?brand=${encodeURIComponent(brand)}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            setAutoAllocatedCompany(data.company);
-          }
-        })
-        .catch(err => console.error("Failed to fetch allocated company", err));
+    if (isOpen) {
+      if (paymentMode === "Cash") {
+        setAutoAllocatedCompany("Cash (Unallocated)");
+        setCompanyAssigned("Unallocated");
+      } else {
+        fetch(`/api/engine/allocate?brand=${encodeURIComponent(brand || "")}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && data.company) {
+              setAutoAllocatedCompany(data.company);
+              setCompanyAssigned(data.company);
+            }
+          })
+          .catch(err => console.error("Failed to fetch allocated company", err));
+      }
     }
   }, [isOpen, paymentMode, brand]);
 
