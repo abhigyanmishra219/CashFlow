@@ -18,9 +18,18 @@ export default function AdminDashboard() {
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
-  const [startDate, setStartDate] = useState<string | null>(null);
-  const [endDate, setEndDate] = useState<string | null>(null);
-  const [filterLabel, setFilterLabel] = useState("Overall");
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  const defaultStart = new Date(currentYear, currentMonth, 1).toISOString().split("T")[0];
+  const defaultEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59).toISOString().split("T")[0];
+  const defaultLabel = `${MONTHS[currentMonth]} ${currentYear}`;
+
+  const [startDate, setStartDate] = useState<string | null>(defaultStart);
+  const [endDate, setEndDate] = useState<string | null>(defaultEnd);
+  const [filterLabel, setFilterLabel] = useState<string>(defaultLabel);
   
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [enquiryToDelete, setEnquiryToDelete] = useState<any>(null);
@@ -69,17 +78,7 @@ export default function AdminDashboard() {
 
   const initialLetter = user.name ? user.name.charAt(0).toUpperCase() : "A";
 
-  if (isLoading) {
-    return (
-      <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
-        <Sidebar />
-        <div className="flex-1 flex flex-col min-w-0 items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-          <p className="mt-4 text-slate-500 font-semibold text-sm">Loading Live Analytics Engine...</p>
-        </div>
-      </div>
-    );
-  }
+
 
   // Data for Metric Cards
   const metrics = [
@@ -219,20 +218,30 @@ export default function AdminDashboard() {
           />
           
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-10 gap-3">
-            {metrics.map((card, i) => (
-              <div key={i} className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs flex flex-col justify-between">
-                <span className="text-[10px] font-semibold text-slate-400/90 truncate uppercase select-none">{card.name}</span>
-                <div className="my-2 flex items-baseline gap-1">
-                  <span className="text-xl font-bold text-slate-800 tracking-tight">{card.value}</span>
+            {isLoading && !data ? (
+              Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs flex flex-col justify-between h-24 animate-pulse">
+                  <div className="h-2.5 w-16 bg-slate-200 rounded-md"></div>
+                  <div className="h-6 w-12 bg-slate-200 rounded-lg my-1"></div>
+                  <div className="h-3.5 w-14 bg-slate-100 rounded-md"></div>
                 </div>
-                <span className={`text-[9px] font-bold truncate rounded-md px-1 py-0.5 w-fit ${
-                  card.simpleText ? "text-slate-500 bg-slate-100" :
-                  card.isGreen ? "text-emerald-600 bg-emerald-50" : "text-rose-600 bg-rose-50"
-                }`}>
-                  {card.trend}
-                </span>
-              </div>
-            ))}
+              ))
+            ) : (
+              metrics.map((card, i) => (
+                <div key={i} className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs flex flex-col justify-between">
+                  <span className="text-[10px] font-semibold text-slate-400/90 truncate uppercase select-none">{card.name}</span>
+                  <div className="my-2 flex items-baseline gap-1">
+                    <span className="text-xl font-bold text-slate-800 tracking-tight">{card.value}</span>
+                  </div>
+                  <span className={`text-[9px] font-bold truncate rounded-md px-1 py-0.5 w-fit ${
+                    card.simpleText ? "text-slate-500 bg-slate-100" :
+                    card.isGreen ? "text-emerald-600 bg-emerald-50" : "text-rose-600 bg-rose-50"
+                  }`}>
+                    {card.trend}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
 
 

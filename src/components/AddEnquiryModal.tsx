@@ -18,9 +18,14 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
   const [brands, setBrands] = useState<any[]>([]);
   const [expectedCourseFee, setExpectedCourseFee] = useState("₹0");
   const [isDemoScheduled, setIsDemoScheduled] = useState(false);
+  const [primaryPhone, setPrimaryPhone] = useState("+91 ");
+  const [parentsPhone, setParentsPhone] = useState("+91 ");
 
   useEffect(() => {
     if (isOpen) {
+      setPrimaryPhone("+91 ");
+      setParentsPhone("+91 ");
+
       fetch("/api/counsellors")
         .then(res => res.json())
         .then(data => {
@@ -50,6 +55,18 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
     }
   }, [isOpen]);
 
+  const handlePrimaryPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const digits = raw.replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+    setPrimaryPhone("+91 " + digits);
+  };
+
+  const handleParentsPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const digits = raw.replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+    setParentsPhone("+91 " + digits);
+  };
+
   // Removed if (!isOpen) return null; to handle AnimatePresence
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -59,6 +76,16 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries());
     
+    // Format phone numbers with +91 prefix
+    if (data.primaryPhoneMobile) {
+      const cleanPrimary = String(data.primaryPhoneMobile).trim().replace(/^\+?91\s?/, '');
+      data.primaryPhoneMobile = cleanPrimary ? `+91 ${cleanPrimary}` : "";
+    }
+    if (data.parentsPhoneNumber) {
+      const cleanParents = String(data.parentsPhoneNumber).trim().replace(/^\+?91\s?/, '');
+      data.parentsPhoneNumber = cleanParents ? `+91 ${cleanParents}` : "";
+    }
+
     // Ensure boolean value for the toggle
     data.isDemoScheduled = isDemoScheduled as any;
 
@@ -132,7 +159,16 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Primary Phone Mobile *</label>
-                <input name="primaryPhoneMobile" type="tel" placeholder="e.g. +91 9876543210" required pattern="^\+91\s?\d{10}$" maxLength={14} title="Must start with +91 followed by 10 digits" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" />
+                <input 
+                  name="primaryPhoneMobile" 
+                  type="tel" 
+                  value={primaryPhone}
+                  onChange={handlePrimaryPhoneChange}
+                  required 
+                  pattern="^\+91 \d{10}$" 
+                  title="Must start with +91 followed by 10 digits" 
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" 
+                />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Parents Full Name</label>
@@ -140,7 +176,16 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Parents Phone Number</label>
-                <input name="parentsPhoneNumber" type="tel" placeholder="e.g. +91 9876500000" pattern="^\+91\s?\d{10}$" maxLength={14} title="Must start with +91 followed by 10 digits" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" />
+                <input 
+                  name="parentsPhoneNumber" 
+                  type="tel" 
+                  value={parentsPhone}
+                  onChange={handleParentsPhoneChange}
+                  placeholder="e.g. +91 9876500000" 
+                  pattern="^(\+91 \d{10}|\+91\s?)?$" 
+                  title="Must start with +91 followed by 10 digits if provided" 
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" 
+                />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Email Address</label>

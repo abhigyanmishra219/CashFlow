@@ -132,8 +132,14 @@ export async function GET(req: Request) {
       query.brand = brand;
     }
 
+    const enquiryQuery: any = {};
+    if (brand && brand !== "all") {
+      enquiryQuery.targetBrand = brand;
+    }
+    const totalEnquiries = await Enquiry.countDocuments(enquiryQuery);
+
     const admissions = await Admission.find(query).sort({ createdAt: -1 });
-    return NextResponse.json({ success: true, data: admissions });
+    return NextResponse.json({ success: true, data: admissions, totalEnquiries });
   } catch (error: any) {
     console.error("Fetch Admissions Error:", error);
     return NextResponse.json(

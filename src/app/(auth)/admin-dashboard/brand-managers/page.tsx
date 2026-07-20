@@ -3,10 +3,14 @@
 import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import AddBrandManagerModal from "@/components/AddBrandManagerModal";
+import EditBrandManagerModal from "@/components/EditBrandManagerModal";
+import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 
 export default function BrandManagersPage() {
   const [selectedManagerId, setSelectedManagerId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingManager, setEditingManager] = useState<any | null>(null);
+  const [managerToDelete, setManagerToDelete] = useState<any | null>(null);
   const [managersList, setManagersList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -60,14 +64,15 @@ export default function BrandManagersPage() {
     fetchManagers();
   }, []);
 
-  const handleDelete = async (id: string, rawId: string) => {
-    if (!confirm("Are you sure you want to delete this brand manager?")) return;
+  const confirmDeleteManager = async () => {
+    if (!managerToDelete) return;
     setIsDeleting(true);
     try {
-      const res = await fetch(`/api/brand-managers/${rawId}`, { method: "DELETE" });
+      const res = await fetch(`/api/brand-managers/${managerToDelete.rawId}`, { method: "DELETE" });
       if (res.ok) {
         fetchManagers();
-        if (selectedManagerId === id) setSelectedManagerId(null);
+        if (selectedManagerId === managerToDelete.id) setSelectedManagerId(null);
+        setManagerToDelete(null);
       } else {
         alert("Failed to delete manager");
       }
@@ -262,14 +267,19 @@ export default function BrandManagersPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors">
+                      <button 
+                        onClick={() => setEditingManager(selectedManager)}
+                        title="Edit Brand Manager"
+                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors"
+                      >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.89-1.13l-2.815-2.815a4.5 4.5 0 0 1-1.13-1.89l19.28-19.28zM16.862 4.487L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
                         </svg>
                       </button>
                       <button
-                        onClick={() => handleDelete(selectedManager.id, selectedManager.rawId)}
+                        onClick={() => setManagerToDelete(selectedManager)}
                         disabled={isDeleting}
+                        title="Delete Brand Manager"
                         className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded-lg transition-colors disabled:opacity-50"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
@@ -366,6 +376,25 @@ export default function BrandManagersPage() {
         onSuccess={() => {
           fetchManagers();
         }}
+      />
+
+      <EditBrandManagerModal
+        isOpen={!!editingManager}
+        manager={editingManager}
+        onClose={() => setEditingManager(null)}
+        onSuccess={() => {
+          fetchManagers();
+          setEditingManager(null);
+        }}
+      />
+
+      <DeleteConfirmModal
+        isOpen={!!managerToDelete}
+        onClose={() => setManagerToDelete(null)}
+        onConfirm={confirmDeleteManager}
+        title="Delete Brand Manager"
+        itemName={managerToDelete?.name || "this brand manager"}
+        isLoading={isDeleting}
       />
     </div>
   );

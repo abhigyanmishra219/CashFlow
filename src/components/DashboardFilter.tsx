@@ -15,7 +15,8 @@ export default function DashboardFilter({ onFilterChange, currentLabel }: Dashbo
   
   const [activeTab, setActiveTab] = useState<"today" | "weekly" | "monthly" | "yearly" | "custom" | null>(
     currentLabel === "Today" ? "today" : 
-    currentLabel === "Custom Range" ? "custom" : null
+    currentLabel === "Custom Range" ? "custom" :
+    currentLabel === "Overall" ? null : "monthly"
   );
   
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -85,6 +86,12 @@ export default function DashboardFilter({ onFilterChange, currentLabel }: Dashbo
         >
           Today
         </button>
+        <button
+          onClick={handleClear}
+          className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${activeTab === null || currentLabel === "Overall" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+        >
+          All Time
+        </button>
         <select
           value={activeTab === "weekly" ? selectedWeek : "weekly"}
           onChange={(e) => {
@@ -135,14 +142,6 @@ export default function DashboardFilter({ onFilterChange, currentLabel }: Dashbo
         >
           Custom
         </button>
-        {currentLabel !== "Overall" && currentLabel !== "Today" && (
-          <button
-            onClick={handleClear}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-100 text-rose-600 hover:bg-rose-200 transition-colors ml-1"
-          >
-            Clear
-          </button>
-        )}
       </div>
 
 

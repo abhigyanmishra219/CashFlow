@@ -12,6 +12,28 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
 
+    // Check for duplicate primary phone number for the target course
+    if (body.primaryPhoneMobile && body.targetCourse) {
+      const cleanDigits = String(body.primaryPhoneMobile).replace(/\D/g, "").slice(-10);
+      if (cleanDigits.length === 10) {
+        const existingEnquiry = await Enquiry.findOne({
+          _id: { $ne: id },
+          targetCourse: { $regex: new RegExp(`^${body.targetCourse.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") },
+          primaryPhoneMobile: { $regex: cleanDigits }
+        });
+
+        if (existingEnquiry) {
+          return NextResponse.json(
+            { 
+              success: false, 
+              message: `A lead with primary phone number '${body.primaryPhoneMobile}' already exists for the course '${body.targetCourse}'.` 
+            },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     const updatedEnquiry = await Enquiry.findByIdAndUpdate(
       id,
       { $set: body },

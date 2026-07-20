@@ -29,7 +29,7 @@ export async function GET(req: Request) {
       targetStart.setHours(0, 0, 0, 0);
       targetEnd = new Date(endDateParam);
       targetEnd.setHours(23, 59, 59, 999);
-      startStr = startDateParam; // assuming YYYY-MM-DD
+      startStr = startDateParam;
       endStr = endDateParam;
       isFiltered = true;
     }
@@ -38,7 +38,11 @@ export async function GET(req: Request) {
     const dateRangeFilter = { $gte: targetStart, $lte: targetEnd };
     const stringDateFilter = { $gte: startStr, $lte: endStr };
 
-    // 1. KPI Calculations
+    const thirtyDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
+    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
+
+    // Parallel execution of all primary data queries using MongoDB Aggregations
     const [
       totalLeads, 
       newLeadsToday, 
@@ -49,7 +53,26 @@ export async function GET(req: Request) {
       lostLeadsToday,
       pendingFeesCount,
       totalPayments,
-      pendingCalls
+      pendingCalls,
+      hotLeads,
+      statusCountsGroup,
+      sourceCountsGroup,
+      thirtyDayEnquiryTrends,
+      thirtyDayAdmissionTrends,
+      thirtyDayFollowupTrends,
+      lostLeadTrends,
+      counsellors,
+      admissionsList,
+      counsellorEnquiryStatsGroup,
+      brands,
+      brandEnquiryStatsGroup,
+      companies,
+      missedCallsCount,
+      counsellingScheduledCount,
+      admissionsWaitingCount,
+      recentAdmDocs,
+      recentLeadDocs,
+      allEnquiries
     ] = await Promise.all([
       Enquiry.countDocuments(globalFilter),
       Enquiry.countDocuments({ createdAt: dateRangeFilter, status: "New" }),
@@ -59,7 +82,7 @@ export async function GET(req: Request) {
       Admission.countDocuments({ createdAt: dateRangeFilter }),
       LostLeadCounter.find({ date: { $gte: startStr, $lte: endStr } }).lean(),
       Admission.countDocuments({ ...globalFilter, remainingBalance: { $gt: 0 } }),
-      Payment.find(isFiltered ? { date: stringDateFilter } : {}).lean(),
+      Payment.find(isFiltered ? { date: stringDateFilter } : {}).select("amountReceived").lean(),
       Enquiry.countDocuments({
         followUps: {
           $elemMatch: {
@@ -67,9 +90,91 @@ export async function GET(req: Request) {
             status: { $ne: "Completed" }
           }
         }
-      })
+      }),
+      Enquiry.countDocuments({ ...globalFilter, status: "Negotiation" }),
+      
+      // Status aggregation for Pipeline
+      Enquiry.aggregate([
+        { $group: { _id: "$status", count: { $sum: 1 } } }
+      ]),
+
+      // Source aggregation for Sources chart
+      Enquiry.aggregate([
+        { $group: { _id: "$leadSource", count: { $sum: 1 } } }
+      ]),
+
+      // 30-Day Trend Aggregations (Replaces 120-query loop with 4 single queries)
+      Enquiry.aggregate([
+        { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+      Admission.aggregate([
+        { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+      Enquiry.aggregate([
+        { $unwind: "$followUps" },
+        { $match: { "followUps.date": { $gte: thirtyDaysAgoStr } } },
+        {
+          $group: {
+            _id: "$followUps.date",
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+      LostLeadCounter.find({ date: { $gte: thirtyDaysAgoStr } }).lean(),
+
+      // Counsellor data
+      User.find({ role: "counsellor" }).select("name").lean(),
+      Admission.find().select("counsellor brand finalFee").lean(),
+      Enquiry.aggregate([
+        {
+          $group: {
+            _id: { $toLower: "$assignedCrmAdvisor" },
+            totalAssigned: { $sum: 1 },
+            followupsCount: {
+              $sum: { $cond: [{ $gt: [{ $size: { $ifNull: ["$followUps", []] } }, 0] }, 1, 0] }
+            }
+          }
+        }
+      ]),
+
+      // Brand data
+      Brand.find().select("name").lean(),
+      Enquiry.aggregate([
+        {
+          $group: {
+            _id: { $toLower: "$targetBrand" },
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+
+      // Companies data
+      Company.find().select("name annualCapacityCap collectedRevenue").lean(),
+
+      // Work Queue counts
+      Enquiry.countDocuments({ "followUps.date": { $lt: todayStr }, status: { $nin: ["Lost", "Admitted"] } }),
+      Enquiry.countDocuments({ status: "Counselling Scheduled" }),
+      Enquiry.countDocuments({ status: "Negotiation" }),
+
+      // Recent Activity & Table Data
+      Admission.find().select("counsellor fullName course createdAt").sort({ createdAt: -1 }).limit(3).lean(),
+      Enquiry.find().select("leadSource studentFullName createdAt").sort({ createdAt: -1 }).limit(3).lean(),
+      Enquiry.find().select("enquiryId studentFullName targetCourse assignedCrmAdvisor status leadPriority").sort({ createdAt: -1 }).limit(10).lean()
     ]);
 
+    // 1. Process KPIs
     let totalCollection = 0;
     totalPayments.forEach((p: any) => {
       totalCollection += Number(p.amountReceived || 0);
@@ -87,10 +192,11 @@ export async function GET(req: Request) {
       conversionRate,
       revenue: `₹${(totalCollection / 100000).toFixed(2)} L`,
       pendingCalls,
-      hotLeads: await Enquiry.countDocuments({ ...globalFilter, status: "Negotiation" }),
+      hotLeads,
     };
 
-    // 2. Pipeline Overview
+    // 2. Process Pipeline Overview
+    const statusMap = new Map(statusCountsGroup.map((g: any) => [g._id, g.count]));
     const pipelineStages = [
       { stage: "New Lead", status: "New", color: "bg-blue-500" },
       { stage: "Contacted", status: "Contacted", color: "bg-sky-500" },
@@ -101,144 +207,118 @@ export async function GET(req: Request) {
       { stage: "Admission", status: "Admitted", color: "bg-emerald-500" }
     ];
 
-    const pipeline = await Promise.all(
-      pipelineStages.map(async (item) => {
-        const count = await Enquiry.countDocuments({ status: item.status });
-        const pct = totalLeads > 0 ? ((count / totalLeads) * 100).toFixed(1) + "%" : "0%";
-        return { stage: item.stage, count, pct, color: item.color };
-      })
-    );
+    const pipeline = pipelineStages.map((item) => {
+      const count = (statusMap.get(item.status) as number) || 0;
+      const pct = totalLeads > 0 ? ((count / totalLeads) * 100).toFixed(1) + "%" : "0%";
+      return { stage: item.stage, count, pct, color: item.color };
+    });
 
-    // 3. Trend Line Graph (30 Days)
+    // 3. Process 30-Day Trend
+    const enquiryTrendMap = new Map(thirtyDayEnquiryTrends.map((g: any) => [g._id, g.count]));
+    const admissionTrendMap = new Map(thirtyDayAdmissionTrends.map((g: any) => [g._id, g.count]));
+    const followupTrendMap = new Map(thirtyDayFollowupTrends.map((g: any) => [g._id, g.count]));
+    const lostLeadTrendMap = new Map(lostLeadTrends.map((l: any) => [l.date, l.count]));
+
     const trendDays = [];
     for (let i = 29; i >= 0; i--) {
-      const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-      const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i, 23, 59, 59, 999);
-      
-      const dayLabel = `${dayStart.getDate()} ${dayStart.toLocaleString("en-US", { month: "short" })}`;
-      
-      const [dayNewLeads, dayAdmissions, dayLost, dayFollowups] = await Promise.all([
-        Enquiry.countDocuments({ createdAt: { $gte: dayStart, $lte: dayEnd } }),
-        Admission.countDocuments({ createdAt: { $gte: dayStart, $lte: dayEnd } }),
-        LostLeadCounter.findOne({ date: dayStart.toISOString().split("T")[0] }).lean(),
-        Enquiry.countDocuments({
-          "followUps.date": dayStart.toISOString().split("T")[0]
-        })
-      ]);
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const dateStr = d.toISOString().split("T")[0];
+      const dayLabel = `${d.getDate()} ${d.toLocaleString("en-US", { month: "short" })}`;
 
       trendDays.push({
         dateLabel: dayLabel,
-        newLeads: dayNewLeads,
-        admissions: dayAdmissions,
-        lostLeads: dayLost ? dayLost.count : 0,
-        followUps: dayFollowups
+        newLeads: enquiryTrendMap.get(dateStr) || 0,
+        admissions: admissionTrendMap.get(dateStr) || 0,
+        lostLeads: lostLeadTrendMap.get(dateStr) || 0,
+        followUps: followupTrendMap.get(dateStr) || 0
       });
     }
 
-    // 4. Source Distribution
+    // 4. Process Source Distribution
+    const sourceMap = new Map(sourceCountsGroup.map((g: any) => [g._id, g.count]));
     const sources = ["Instagram", "Google Ads", "Website", "Walk-in", "Facebook", "Others"];
     const colors = ["bg-blue-500", "bg-cyan-500", "bg-emerald-500", "bg-amber-500", "bg-purple-500", "bg-slate-300"];
     const sourceColorsHex = ["#3b82f6", "#06b6d4", "#10b981", "#f59e0b", "#a855f7", "#cbd5e1"];
 
-    const dbSourceMap: Record<string, string[]> = {
-      "Instagram": ["Meta Ads"],
-      "Google Ads": ["Google Ads"],
-      "Website": ["Internet Search"],
-      "Walk-in": ["Direct Walkin"],
-      "Facebook": ["Meta Ads"] // We map Meta Ads to both? Actually let's just query
-    };
+    const enquiriesBySource = sources.map((source, i) => {
+      let count = 0;
+      if (source === "Others") {
+        const known = (sourceMap.get("Meta Ads") || 0) + (sourceMap.get("Google Ads") || 0) + (sourceMap.get("Internet Search") || 0) + (sourceMap.get("Direct Walkin") || 0);
+        count = Math.max(0, totalLeads - known);
+      } else if (source === "Instagram" || source === "Facebook") {
+        count = sourceMap.get("Meta Ads") || 0;
+      } else if (source === "Walk-in") {
+        count = sourceMap.get("Direct Walkin") || 0;
+      } else if (source === "Website") {
+        count = sourceMap.get("Internet Search") || 0;
+      } else {
+        count = sourceMap.get(source) || 0;
+      }
+      const pctNum = totalLeads > 0 ? (count / totalLeads) * 100 : 0;
+      return {
+        label: source,
+        count,
+        pct: `${pctNum.toFixed(1)}%`,
+        pctNum,
+        color: colors[i],
+        hex: sourceColorsHex[i]
+      };
+    });
 
-    const enquiriesBySource = await Promise.all(
-      sources.map(async (source, i) => {
-        let query: any = {};
-        if (source === "Others") {
-          query = { leadSource: { $nin: ["Meta Ads", "Google Ads", "Internet Search", "Direct Walkin"] } };
-        } else if (source === "Instagram" || source === "Facebook") {
-           query = { leadSource: "Meta Ads" }; // Rough proxy
-        } else if (source === "Walk-in") {
-           query = { leadSource: "Direct Walkin" };
-        } else if (source === "Website") {
-           query = { leadSource: "Internet Search" };
-        } else {
-           query = { leadSource: source };
-        }
-        const count = await Enquiry.countDocuments(query);
-        const pctNum = totalLeads > 0 ? (count / totalLeads) * 100 : 0;
-        return {
-          label: source,
-          count,
-          pct: `${pctNum.toFixed(1)}%`,
-          pctNum,
-          color: colors[i],
-          hex: sourceColorsHex[i]
-        };
-      })
-    );
+    // 5. Process Counsellor Performance
+    const counsellorStatsMap = new Map(counsellorEnquiryStatsGroup.map((g: any) => [g._id, g]));
+    const counsellorPerformance = counsellors.map((c: any) => {
+      const cName = c.name || "";
+      const lowerName = cName.toLowerCase();
+      const cAdmissions = admissionsList.filter((a: any) => 
+        a.counsellor && typeof a.counsellor === 'string' && a.counsellor.toLowerCase() === lowerName
+      );
+      const admCount = cAdmissions.length;
+      const revSum = cAdmissions.reduce((acc: number, cur: any) => acc + Number(cur.finalFee || 0), 0);
+      
+      const stats = counsellorStatsMap.get(lowerName) || { totalAssigned: 0, followupsCount: 0 };
+      const totalAssignedEnquiries = stats.totalAssigned;
+      const followupsCount = stats.followupsCount;
 
-    // 5. Counsellor Performance
-    const counsellors = await User.find({ role: "counsellor" }).lean();
-    const admissionsList = await Admission.find().lean();
-    
-    const counsellorPerformance = await Promise.all(
-      counsellors.map(async (c: any) => {
-        const cName = c.name;
-        const cAdmissions = admissionsList.filter((a: any) => 
-          a.counsellor && typeof a.counsellor === 'string' && typeof cName === 'string' && a.counsellor.toLowerCase() === cName.toLowerCase()
-        );
-        const admCount = cAdmissions.length;
-        const revSum = cAdmissions.reduce((acc: number, cur: any) => acc + Number(cur.finalFee || 0), 0);
-        
-        const escapedCName = (cName || "").replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const cNameRegex = new RegExp(`^${escapedCName}$`, "i");
+      const convRate = totalAssignedEnquiries > 0 
+        ? ((admCount / totalAssignedEnquiries) * 100).toFixed(1) + "%"
+        : "0%";
 
-        const totalAssignedEnquiries = await Enquiry.countDocuments({ assignedCrmAdvisor: { $regex: cNameRegex } });
-        const followupsCount = await Enquiry.countDocuments({ assignedCrmAdvisor: { $regex: cNameRegex }, "followUps.0": { $exists: true } });
+      return {
+        name: cName,
+        assigned: totalAssignedEnquiries,
+        followups: followupsCount,
+        admissions: admCount,
+        conversion: convRate,
+        rawRev: revSum
+      };
+    });
+    counsellorPerformance.sort((a: any, b: any) => b.admissions - a.admissions || b.rawRev - a.rawRev);
 
-        const convRate = totalAssignedEnquiries > 0 
-          ? ((admCount / totalAssignedEnquiries) * 100).toFixed(1) + "%"
-          : "0%";
+    // 6. Process Brand Performance
+    const brandStatsMap = new Map(brandEnquiryStatsGroup.map((g: any) => [g._id, g.count]));
+    const brandPerformance = brands.map((b: any) => {
+      const bName = b.name || "";
+      const lowerBName = bName.toLowerCase();
+      const bAdmissions = admissionsList.filter((a: any) => 
+        a.brand && typeof a.brand === 'string' && a.brand.toLowerCase() === lowerBName
+      );
+      const bAdmCount = bAdmissions.length;
+      const bRevSum = bAdmissions.reduce((acc: number, cur: any) => acc + Number(cur.finalFee || 0), 0);
+      
+      const bLeadsCount = brandStatsMap.get(lowerBName) || 0;
 
-        return {
-          name: cName,
-          assigned: totalAssignedEnquiries,
-          followups: followupsCount,
-          admissions: admCount,
-          conversion: convRate,
-          rawRev: revSum
-        };
-      })
-    );
-    counsellorPerformance.sort((a, b) => b.admissions - a.admissions || b.rawRev - a.rawRev);
+      return {
+        name: bName,
+        leads: bLeadsCount,
+        admissions: bAdmCount,
+        revenue: `₹${(bRevSum / 100000).toFixed(2)} L`,
+        achievePct: bLeadsCount > 0 ? ((bAdmCount / bLeadsCount) * 100).toFixed(1) + "%" : "0%"
+      };
+    });
+    brandPerformance.sort((a: any, b: any) => b.admissions - a.admissions);
 
-    // 6. Brand Performance
-    const brands = await Brand.find().lean();
-    const brandPerformance = await Promise.all(
-      brands.map(async (b: any) => {
-        const bName = b.name;
-        const bAdmissions = admissionsList.filter((a: any) => 
-          a.brand && typeof a.brand === 'string' && typeof bName === 'string' && a.brand.toLowerCase() === bName.toLowerCase()
-        );
-        const bAdmCount = bAdmissions.length;
-        const bRevSum = bAdmissions.reduce((acc: number, cur: any) => acc + Number(cur.finalFee || 0), 0);
-        
-        const escapedBrandName = (bName || "").replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const bLeadsCount = await Enquiry.countDocuments({ 
-          targetBrand: { $regex: new RegExp(`^${escapedBrandName}$`, "i") } 
-        });
-
-        return {
-          name: bName,
-          leads: bLeadsCount,
-          admissions: bAdmCount,
-          revenue: `₹${(bRevSum / 100000).toFixed(2)} L`,
-          achievePct: bLeadsCount > 0 ? ((bAdmCount / bLeadsCount) * 100).toFixed(1) + "%" : "0%"
-        };
-      })
-    );
-    brandPerformance.sort((a, b) => b.admissions - a.admissions);
-
-    // 7. Company Limit & Utilization
-    const companies = await Company.find().lean();
+    // 7. Process Company Limit & Utilization
     const companyUtilization = companies.map((c: any) => {
       const cap = Number(c.annualCapacityCap || 1949999);
       const collected = Number(c.collectedRevenue || 0);
@@ -253,19 +333,16 @@ export async function GET(req: Request) {
       };
     });
 
-    // 8. Work Queue
+    // 8. Process Work Queue
     const workQueue = {
       followUpsDue: followUpsToday,
-      missedCalls: await Enquiry.countDocuments({ "followUps.date": { $lt: todayStr }, status: { $nin: ["Lost", "Admitted"] } }),
-      counsellingScheduled: await Enquiry.countDocuments({ status: "Counselling Scheduled" }),
-      admissionsWaiting: await Enquiry.countDocuments({ status: "Negotiation" }),
+      missedCalls: missedCallsCount,
+      counsellingScheduled: counsellingScheduledCount,
+      admissionsWaiting: admissionsWaitingCount,
       feePending: pendingFeesCount
     };
 
-    // 9. Recent Activity
-    const recentAdmDocs = await Admission.find().sort({ createdAt: -1 }).limit(3).lean();
-    const recentLeadDocs = await Enquiry.find().sort({ createdAt: -1 }).limit(3).lean();
-    
+    // 9. Process Recent Activity
     const recentActivity: { text: string; time: string; color: string; timestamp: number }[] = [];
     
     recentAdmDocs.forEach((a: any) => {
@@ -288,8 +365,7 @@ export async function GET(req: Request) {
 
     recentActivity.sort((a, b) => b.timestamp - a.timestamp);
 
-    // 10. Enquiries List
-    const allEnquiries = await Enquiry.find().sort({ createdAt: -1 }).limit(10).lean();
+    // 10. Process Enquiries List
     const enquiriesList = allEnquiries.map((e: any) => ({
       id: e.enquiryId || e._id.toString().substring(0, 8).toUpperCase(),
       dbId: e._id.toString(),
