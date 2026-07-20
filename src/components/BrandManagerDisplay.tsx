@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import RegisterBrandModal from "./RegisterBrandModal";
+import DeleteConfirmModal from "./DeleteConfirmModal";
 
 export default function BrandManagerDisplay() {
   const [selectedBrandId, setSelectedBrandId] = useState("");
@@ -441,35 +442,13 @@ export default function BrandManagerDisplay() {
       <RegisterBrandModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} brandToEdit={brandToEdit} />
 
       {/* Delete Confirmation Modal */}
-      {isDeleteModalOpen && brandToDelete && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in font-sans">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-8 shadow-2xl flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mb-5">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8 text-rose-500">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-3">Delete Brand</h3>
-            <p className="text-sm text-slate-500 mb-8 leading-relaxed">
-              Are you sure you want to delete <span className="font-bold text-slate-700">{brandToDelete.name}</span>? This action is permanent and cannot be undone.
-            </p>
-            <div className="flex gap-4 w-full">
-              <button
-                onClick={() => setIsDeleteModalOpen(false)}
-                className="flex-1 py-3.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-sm rounded-2xl transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="flex-1 py-3.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm rounded-2xl shadow-md shadow-rose-600/20 transition-all"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Delete Brand"
+        itemName={brandToDelete?.name || "this brand"}
+      />
     </div>
   );
 }

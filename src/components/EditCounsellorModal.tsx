@@ -28,12 +28,18 @@ export default function EditCounsellorModal({
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const cleanPhoneDigits = (phone: string) => {
+    if (!phone) return "";
+    return String(phone).replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+  };
+
   useEffect(() => {
     if (counsellor) {
+      const cleaned = cleanPhoneDigits(counsellor.phone || "");
       setFormData({
         name: counsellor.name || "",
         email: counsellor.email || "",
-        phone: counsellor.phone || "",
+        phone: "+91 " + cleaned,
         brandScope: counsellor.scope || counsellor.brandScope || "Cadd Mantra",
         joiningDate: counsellor.joiningDate && counsellor.joiningDate !== "—"
           ? new Date(counsellor.joiningDate).toISOString().split("T")[0]
@@ -55,10 +61,21 @@ export default function EditCounsellorModal({
     }));
   };
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const digits = raw.replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+    setFormData((prev) => ({
+      ...prev,
+      phone: "+91 " + digits,
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+
+    const cleanPhone = cleanPhoneDigits(formData.phone);
 
     try {
       const response = await fetch(`/api/counsellors/${counsellor.id}`, {
@@ -69,7 +86,7 @@ export default function EditCounsellorModal({
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
-          phone: formData.phone,
+          phone: cleanPhone ? `+91 ${cleanPhone}` : "",
           brandScope: formData.brandScope,
           joiningDate: formData.joiningDate ? new Date(formData.joiningDate) : undefined,
           annualTarget: Number(formData.annualTarget),
@@ -182,10 +199,11 @@ export default function EditCounsellorModal({
                 Phone Mobile
               </label>
               <input
-                type="text"
+                type="tel"
                 name="phone"
                 value={formData.phone}
-                onChange={handleChange}
+                onChange={handlePhoneChange}
+                placeholder="e.g. +91 9988011223"
                 className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>

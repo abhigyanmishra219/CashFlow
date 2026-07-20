@@ -19,6 +19,7 @@ export default function AdmissionHub() {
     const [isAdmissionModalOpen, setIsAdmissionModalOpen] = useState(false);
     const [leadForAdmission, setLeadForAdmission] = useState<any | null>(null);
     const [admissions, setAdmissions] = useState<any[]>([]);
+    const [totalEnquiries, setTotalEnquiries] = useState(0);
     const [isLoadingAdmissions, setIsLoadingAdmissions] = useState(true);
 
     const fetchAdmissions = async () => {
@@ -30,6 +31,9 @@ export default function AdmissionHub() {
             if (json.success) {
                 const myAdmissions = json.data.filter((a: any) => (a.counsellor || "").toLowerCase() === (user.name || "").toLowerCase());
                 setAdmissions(myAdmissions);
+                if (json.totalEnquiries !== undefined) {
+                    setTotalEnquiries(json.totalEnquiries);
+                }
             }
         } catch (e) {
             console.error(e);
@@ -50,8 +54,9 @@ export default function AdmissionHub() {
         return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
     }).length;
 
-    // Mock conversion calculation based on admissions length (e.g., assuming 100 leads base)
-    const salesConversion = Math.min(Math.round((admissions.length / (admissions.length + 50)) * 100), 100);
+    const salesConversion = totalEnquiries > 0
+        ? ((admissions.length / totalEnquiries) * 100).toFixed(1)
+        : "0";
 
 
     const handleSearch = async () => {

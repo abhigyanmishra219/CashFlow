@@ -1,14 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
-interface AddBrandManagerModalProps {
+interface EditBrandManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
+  manager: any;
   onSuccess?: () => void;
 }
 
-export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: AddBrandManagerModalProps) {
+export default function EditBrandManagerModal({
+  isOpen,
+  onClose,
+  manager,
+  onSuccess,
+}: EditBrandManagerModalProps) {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -20,22 +26,34 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  React.useEffect(() => {
-    if (isOpen) {
+  const cleanPhoneDigits = (phone: string) => {
+    if (!phone) return "";
+    return String(phone).replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+  };
+
+  useEffect(() => {
+    if (manager) {
+      const nameParts = (manager.name || "").split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+      const phoneCleaned = cleanPhoneDigits(manager.phone || "");
+
       setFormData({
-        firstName: "",
-        lastName: "",
-        email: "",
-        phone: "+91 ",
-        photoUrl: "",
-        brandScope: "Cadd Mantra",
+        firstName,
+        lastName,
+        email: manager.email || "",
+        phone: "+91 " + phoneCleaned,
+        photoUrl: manager.photoUrl || "",
+        brandScope: manager.brand || manager.brandScope || "Cadd Mantra",
         password: "",
       });
+      setError("");
     }
-  }, [isOpen]);
+  }, [manager]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !manager) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -51,51 +69,49 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    const cleanDigits = formData.phone.replace(/^\+?91\s?/, "").replace(/\D/g, "");
+    setError("");
+
+    const cleanDigits = cleanPhoneDigits(formData.phone);
+    const targetId = manager.rawId || manager._id || manager.id;
+
     const payload = {
-      ...formData,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
       phone: cleanDigits ? `+91 ${cleanDigits}` : "",
+      photoUrl: formData.photoUrl,
+      brandScope: formData.brandScope,
+      ...(formData.password ? { password: formData.password } : {}),
     };
 
     try {
-      const response = await fetch("/api/brand-managers", {
-        method: "POST",
+      const response = await fetch(`/api/brand-managers/${targetId}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
         if (onSuccess) onSuccess();
         onClose();
-        // Reset form
-        setFormData({
-          firstName: "",
-          lastName: "",
-          email: "",
-          phone: "+91 ",
-          photoUrl: "",
-          brandScope: "Cadd Mantra",
-          password: "",
-        });
       } else {
-        alert(data.error || "Failed to provision brand manager");
+        setError(data.error || "Failed to update brand manager");
       }
-    } catch (error) {
-      console.error("Submission error:", error);
-      alert("An error occurred during submission.");
+    } catch (err: any) {
+      console.error("Update error:", err);
+      setError("An error occurred during update.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
+      <div
+        className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"
         onClick={onClose}
       ></div>
 
@@ -103,11 +119,14 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
       <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <h2 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
-            <span className="text-indigo-600 font-bold text-lg">+</span> Provision Brand Manager Account
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-indigo-600">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+            </svg>
+            Edit Brand Manager Profile
           </h2>
-          <button 
+          <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg transition-colors"
           >
@@ -119,7 +138,13 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+          {error && (
+            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-600 text-xs font-semibold rounded-xl font-sans">
+              {error}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 font-sans">
             
             {/* First Name */}
             <div>
@@ -132,7 +157,7 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
                 value={formData.firstName}
                 onChange={handleChange}
                 placeholder="John"
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all placeholder:text-slate-300"
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all"
                 required
               />
             </div>
@@ -148,7 +173,7 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
                 value={formData.lastName}
                 onChange={handleChange}
                 placeholder="Doe"
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all placeholder:text-slate-300"
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all"
                 required
               />
             </div>
@@ -164,7 +189,7 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="manager@brand.com"
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all placeholder:text-slate-300 font-mono"
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-mono"
                 required
               />
             </div>
@@ -193,7 +218,7 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
                 name="brandScope"
                 value={formData.brandScope}
                 onChange={handleChange}
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all appearance-none cursor-pointer"
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all cursor-pointer"
                 required
               >
                 <option value="Cadd Mantra">Cadd Mantra</option>
@@ -202,19 +227,18 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
               </select>
             </div>
 
-            {/* Temporary Password */}
+            {/* New Password (Optional) */}
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
-                Temporary Password <span className="text-rose-500">*</span>
+                New Password (Optional)
               </label>
               <input
                 type="text"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                placeholder="CoachFlowTemp123!"
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all placeholder:text-slate-300 font-mono"
-                required
+                placeholder="Leave blank to keep current"
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-mono"
               />
             </div>
           </div>
@@ -222,7 +246,7 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
           <hr className="my-6 border-slate-100" />
 
           {/* Footer actions */}
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex items-center justify-end gap-3 font-sans">
             <button
               type="button"
               onClick={onClose}
@@ -235,7 +259,7 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
               disabled={isSubmitting}
               className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/20 transition-all disabled:opacity-50"
             >
-              {isSubmitting ? "Registering..." : "Register Executive"}
+              {isSubmitting ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </form>

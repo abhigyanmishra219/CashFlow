@@ -13,7 +13,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: 
     firstName: "",
     lastName: "",
     email: "",
-    phone: "+91 99880 11223",
+    phone: "+91 ",
     photoUrl: "",
     brandScope: "Cadd Mantra",
     joiningDate: "2026-07-14",
@@ -25,6 +25,25 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: 
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  React.useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "+91 ",
+        photoUrl: "",
+        brandScope: "Cadd Mantra",
+        joiningDate: "2026-07-14",
+        annualTarget: 500000,
+        currentRevenue: 0,
+        admissionsRecorded: 0,
+        password: "CoachFlowTemp123!",
+      });
+      setError("");
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -35,10 +54,25 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: 
     }));
   };
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const digits = raw.replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+    setFormData((prev) => ({
+      ...prev,
+      phone: "+91 " + digits,
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+
+    const cleanDigits = formData.phone.replace(/^\+?91\s?/, "").replace(/\D/g, "");
+    const payload = {
+      ...formData,
+      phone: cleanDigits ? `+91 ${cleanDigits}` : "",
+    };
 
     try {
       const response = await fetch("/api/counsellors", {
@@ -46,7 +80,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: 
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -146,25 +180,13 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: 
           <div className="col-span-2">
             <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Mobile Phone</label>
             <input
-              type="text"
+              type="tel"
               name="phone"
               value={formData.phone}
-              onChange={handleChange}
+              onChange={handlePhoneChange}
+              placeholder="e.g. +91 9988011223"
               disabled={isLoading}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:opacity-50"
-            />
-          </div>
-
-          <div className="col-span-2">
-            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Profile Photo URL</label>
-            <input
-              type="text"
-              name="photoUrl"
-              placeholder="https://images.unsplash.com/... (optional)"
-              value={formData.photoUrl}
-              onChange={handleChange}
-              disabled={isLoading}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:opacity-50"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:opacity-50 text-slate-700 font-semibold"
             />
           </div>
 

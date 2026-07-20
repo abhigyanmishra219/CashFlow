@@ -24,12 +24,17 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
     remarks: "",
   });
 
+  const cleanPhoneDigits = (phone: string) => {
+    if (!phone) return "";
+    return String(phone).replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+  };
+
   useEffect(() => {
     if (lead) {
       setFormData({
         studentFullName: lead.studentFullName || "",
-        primaryPhoneMobile: lead.primaryPhoneMobile || "",
-        parentsPhoneNumber: lead.parentsPhoneNumber || "",
+        primaryPhoneMobile: cleanPhoneDigits(lead.primaryPhoneMobile || ""),
+        parentsPhoneNumber: cleanPhoneDigits(lead.parentsPhoneNumber || ""),
         emailAddress: lead.emailAddress || "",
         currentCity: lead.currentCity || "",
         status: lead.status || "New",
@@ -54,13 +59,22 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
     e.preventDefault();
     setIsSubmitting(true);
 
+    const primaryClean = cleanPhoneDigits(formData.primaryPhoneMobile);
+    const parentsClean = cleanPhoneDigits(formData.parentsPhoneNumber);
+
+    const payload = {
+      ...formData,
+      primaryPhoneMobile: primaryClean ? `+91 ${primaryClean}` : "",
+      parentsPhoneNumber: parentsClean ? `+91 ${parentsClean}` : "",
+    };
+
     try {
       const response = await fetch(`/api/enquiries/${lead._id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
@@ -104,12 +118,46 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1.5">Phone Mobile</label>
-              <input name="primaryPhoneMobile" value={formData.primaryPhoneMobile} onChange={handleChange} type="tel" className="w-full text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" />
+              <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:ring-1 focus-within:ring-indigo-500/50 bg-white">
+                <span className="inline-flex items-center px-3 bg-slate-50 text-slate-600 font-bold text-xs border-r border-slate-200 select-none">
+                  +91
+                </span>
+                <input 
+                  name="primaryPhoneMobile" 
+                  value={formData.primaryPhoneMobile} 
+                  onChange={(e) => {
+                    const cleaned = cleanPhoneDigits(e.target.value);
+                    setFormData(prev => ({ ...prev, primaryPhoneMobile: cleaned }));
+                  }} 
+                  type="tel" 
+                  placeholder="9876543210"
+                  pattern="^\d{10}$"
+                  maxLength={10}
+                  className="w-full text-sm font-semibold text-slate-700 px-4 py-2.5 focus:outline-none bg-transparent" 
+                />
+              </div>
             </div>
             
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1.5">Alternate Mobile</label>
-              <input name="parentsPhoneNumber" value={formData.parentsPhoneNumber} onChange={handleChange} type="tel" className="w-full text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" />
+              <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:ring-1 focus-within:ring-indigo-500/50 bg-white">
+                <span className="inline-flex items-center px-3 bg-slate-50 text-slate-600 font-bold text-xs border-r border-slate-200 select-none">
+                  +91
+                </span>
+                <input 
+                  name="parentsPhoneNumber" 
+                  value={formData.parentsPhoneNumber} 
+                  onChange={(e) => {
+                    const cleaned = cleanPhoneDigits(e.target.value);
+                    setFormData(prev => ({ ...prev, parentsPhoneNumber: cleaned }));
+                  }} 
+                  type="tel" 
+                  placeholder="9876500000"
+                  pattern="^\d{10}$"
+                  maxLength={10}
+                  className="w-full text-sm font-semibold text-slate-700 px-4 py-2.5 focus:outline-none bg-transparent" 
+                />
+              </div>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1.5">Email Address</label>

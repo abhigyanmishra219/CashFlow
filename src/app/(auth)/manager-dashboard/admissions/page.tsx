@@ -23,6 +23,7 @@ export default function BrandManagerAdmissionHub() {
 
     // Admissions Data
     const [admissions, setAdmissions] = useState<any[]>([]);
+    const [totalEnquiries, setTotalEnquiries] = useState(0);
     const [isLoadingAdmissions, setIsLoadingAdmissions] = useState(true);
 
     // Table Filters
@@ -38,6 +39,9 @@ export default function BrandManagerAdmissionHub() {
             const json = await res.json();
             if (json.success) {
                 setAdmissions(json.data);
+                if (json.totalEnquiries !== undefined) {
+                    setTotalEnquiries(json.totalEnquiries);
+                }
             }
         } catch (e) {
             console.error("Fetch admissions error:", e);
@@ -60,10 +64,9 @@ export default function BrandManagerAdmissionHub() {
         return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
     }).length;
 
-    const salesConversion = Math.min(
-        Math.round((admissions.length / (admissions.length + 50 || 1)) * 100),
-        100
-    );
+    const salesConversion = totalEnquiries > 0
+        ? ((admissions.length / totalEnquiries) * 100).toFixed(1)
+        : "0";
 
     const handleSearch = async () => {
         if (!searchQuery.trim()) return;
