@@ -20,10 +20,19 @@ interface SidebarGroup {
 export default function Sidebar() {
   const pathname = usePathname();
   const { user, login, logout } = useUser();
-  const [isCollapsed, setIsCollapsed] = useState(true);
+
+  const isSuperAdmin = !user?.role || user?.role === "admin" || user?.role === "super admin" || user?.role === "superadmin" || pathname?.includes("admin");
+
+  const [isCollapsed, setIsCollapsed] = useState(!isSuperAdmin);
   const [localLogo, setLocalLogo] = useState<string>("");
   const [imgError, setImgError] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (isSuperAdmin) {
+      setIsCollapsed(false);
+    }
+  }, [isSuperAdmin, pathname]);
 
   React.useEffect(() => {
     const saved = localStorage.getItem("app_brand_logo");
