@@ -10,6 +10,8 @@ export interface User {
   role: string;
   brandScope?: string;
   phone?: string;
+  photoUrl?: string;
+  brandLogo?: string;
 }
 
 interface UserContextType {

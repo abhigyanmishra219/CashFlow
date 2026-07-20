@@ -31,6 +31,10 @@ export default function AdminDashboard() {
   const [endDate, setEndDate] = useState<string | null>(defaultEnd);
   const [filterLabel, setFilterLabel] = useState<string>(defaultLabel);
   
+  const [trendMode, setTrendMode] = useState<"daily" | "cumulative">("daily");
+  const [hoveredTrendDay, setHoveredTrendDay] = useState<any>(null);
+  const [hoveredTrendIndex, setHoveredTrendIndex] = useState<number | null>(null);
+
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [enquiryToDelete, setEnquiryToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -96,18 +100,45 @@ export default function AdminDashboard() {
 
   const pipeline = data?.pipeline || [];
   
+  const processedTrendDays = React.useMemo(() => {
+    if (!data?.trendDays) return [];
+    if (trendMode === "daily") return data.trendDays;
+
+    let runningLeads = 0;
+    let runningAdmissions = 0;
+    let runningLost = 0;
+    let runningFollowups = 0;
+
+    return data.trendDays.map((d: any) => {
+      runningLeads += d.newLeads || 0;
+      runningAdmissions += d.admissions || 0;
+      runningLost += d.lostLeads || 0;
+      runningFollowups += d.followUps || 0;
+
+      return {
+        ...d,
+        newLeads: runningLeads,
+        admissions: runningAdmissions,
+        lostLeads: runningLost,
+        followUps: runningFollowups,
+      };
+    });
+  }, [data?.trendDays, trendMode]);
+
   // Trend line chart generation
   const maxVal = Math.max(
-    ...(data?.trendDays?.map((d: any) => Math.max(d.newLeads, d.admissions, d.lostLeads, d.followUps)) || [0]), 
+    ...(processedTrendDays.map((d: any) => Math.max(d.newLeads, d.admissions, d.lostLeads, d.followUps)) || [0]), 
     10
   );
   
   const generatePath = (key: string) => {
-    if (!data?.trendDays || data.trendDays.length === 0) return "";
-    return data.trendDays.map((d: any, i: number) => {
-      const x = i * (600 / 29);
+    if (!processedTrendDays || processedTrendDays.length === 0) return "";
+    const totalPoints = processedTrendDays.length;
+    const step = 600 / Math.max(1, totalPoints - 1);
+    return processedTrendDays.map((d: any, i: number) => {
+      const x = i * step;
       const y = 160 - ((d[key] || 0) / maxVal) * 140; 
-      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
     }).join(" ");
   };
 
@@ -194,10 +225,13 @@ export default function AdminDashboard() {
               </div>
               <button 
                 onClick={() => setIsProfileOpen(true)}
-                className="h-8 w-8 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center border border-indigo-500 shadow-md hover:bg-indigo-500 transition-colors"
+                className="h-8 w-8 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center border border-indigo-500 shadow-md hover:bg-indigo-500 transition-colors overflow-hidden shrink-0"
                 title="View Profile Details"
               >
-                {initialLetter}
+                {user.photoUrl ? (
+                  <img src={user.photoUrl} alt={user.name} className="h-full w-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                ) : null}
+                <span className={user.photoUrl ? "hidden" : "block"}>{initialLetter}</span>
               </button>
             </div>
 
@@ -249,8 +283,28 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs lg:col-span-2">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">Lead Trend (Last 30 Days)</h2>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">
+                    Lead Trend ({filterLabel === "Overall" ? "Last 30 Days" : filterLabel})
+                  </h2>
+                  <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[10px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setTrendMode("daily")}
+                      className={`px-2 py-0.5 rounded-md transition-all ${trendMode === "daily" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                      Daily
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTrendMode("cumulative")}
+                      className={`px-2 py-0.5 rounded-md transition-all ${trendMode === "cumulative" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                      Cumulative
+                    </button>
+                  </div>
+                </div>
                 <div className="flex gap-2">
                   <span className="text-[10px] text-slate-400 flex items-center gap-1 select-none">
                     <span className="h-2 w-2 rounded-full bg-blue-500"></span> Total Leads
@@ -267,21 +321,93 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="w-full h-48">
-                <svg className="w-full h-full" viewBox="0 0 600 180" preserveAspectRatio="none">
-                  <line x1="0" y1="30" x2="600" y2="30" stroke="#f1f5f9" strokeWidth="1" />
-                  <line x1="0" y1="70" x2="600" y2="70" stroke="#f1f5f9" strokeWidth="1" />
-                  <line x1="0" y1="110" x2="600" y2="110" stroke="#f1f5f9" strokeWidth="1" />
-                  <line x1="0" y1="150" x2="600" y2="150" stroke="#f1f5f9" strokeWidth="1" />
+              <div className="relative w-full h-48 group">
+                <svg className="w-full h-full overflow-visible" viewBox="0 0 600 180" preserveAspectRatio="none">
+                  <line x1="0" y1="30" x2="600" y2="30" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                  <line x1="0" y1="70" x2="600" y2="70" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                  <line x1="0" y1="110" x2="600" y2="110" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                  <line x1="0" y1="150" x2="600" y2="150" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
 
-                  <path d={generatePath('newLeads')} fill="none" stroke="#3b82f6" strokeWidth="2" />
-                  <path d={generatePath('admissions')} fill="none" stroke="#10b981" strokeWidth="2" />
-                  <path d={generatePath('lostLeads')} fill="none" stroke="#ef4444" strokeWidth="2" />
-                  <path d={generatePath('followUps')} fill="none" stroke="#f59e0b" strokeWidth="2" />
+                  <path d={generatePath('newLeads')} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={generatePath('admissions')} fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={generatePath('lostLeads')} fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={generatePath('followUps')} fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+
+                  {/* Vertical Guide Line on Hover */}
+                  {hoveredTrendIndex !== null && processedTrendDays && (
+                    <line
+                      x1={hoveredTrendIndex * (600 / Math.max(1, processedTrendDays.length - 1))}
+                      y1="10"
+                      x2={hoveredTrendIndex * (600 / Math.max(1, processedTrendDays.length - 1))}
+                      y2="160"
+                      stroke="#64748b"
+                      strokeWidth="1.5"
+                      strokeDasharray="3 3"
+                    />
+                  )}
+
+                  {/* Invisible Hover Rectangles for each date point */}
+                  {processedTrendDays?.map((d: any, i: number) => {
+                    const step = 600 / Math.max(1, processedTrendDays.length - 1);
+                    const cx = i * step;
+                    return (
+                      <rect
+                        key={i}
+                        x={cx - step / 2}
+                        y="0"
+                        width={step}
+                        height="180"
+                        fill="transparent"
+                        className="cursor-pointer"
+                        onMouseEnter={() => {
+                          setHoveredTrendDay(d);
+                          setHoveredTrendIndex(i);
+                        }}
+                        onMouseLeave={() => {
+                          setHoveredTrendDay(null);
+                          setHoveredTrendIndex(null);
+                        }}
+                      />
+                    );
+                  })}
                 </svg>
+
+                {/* Interactive Tooltip Popover */}
+                {hoveredTrendDay && hoveredTrendIndex !== null && processedTrendDays && (
+                  <div
+                    className="absolute top-2 pointer-events-none bg-slate-900/90 backdrop-blur-md text-white text-xs p-3 rounded-xl shadow-xl z-30 border border-slate-700/80 transition-all"
+                    style={{
+                      left: `${Math.min(82, Math.max(8, (hoveredTrendIndex / Math.max(1, processedTrendDays.length - 1)) * 100))}%`,
+                      transform: 'translateX(-50%)'
+                    }}
+                  >
+                    <div className="font-bold text-[11px] text-slate-300 border-b border-slate-700 pb-1 mb-1.5 flex items-center justify-between gap-4">
+                      <span>{hoveredTrendDay.dateLabel}</span>
+                      <span className="text-[9px] text-indigo-400 font-bold uppercase">{trendMode === "daily" ? "Daily Count" : "Cumulative Total"}</span>
+                    </div>
+                    <div className="space-y-1 text-[10px] font-semibold">
+                      <div className="flex justify-between items-center gap-3">
+                        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-500"></span> {trendMode === "daily" ? "New Leads Today" : "Total Leads to Date"}:</span>
+                        <span className="font-bold text-white">{hoveredTrendDay.newLeads}</span>
+                      </div>
+                      <div className="flex justify-between items-center gap-3">
+                        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500"></span> Admissions:</span>
+                        <span className="font-bold text-emerald-400">{hoveredTrendDay.admissions}</span>
+                      </div>
+                      <div className="flex justify-between items-center gap-3">
+                        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-500"></span> Follow-ups:</span>
+                        <span className="font-bold text-amber-400">{hoveredTrendDay.followUps}</span>
+                      </div>
+                      <div className="flex justify-between items-center gap-3">
+                        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-rose-500"></span> Lost Leads:</span>
+                        <span className="font-bold text-rose-400">{hoveredTrendDay.lostLeads}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-2 px-2 select-none">
-                {data?.trendDays?.filter((_: any, i: number) => i % 5 === 0).map((d: any, idx: number) => (
+                {processedTrendDays?.filter((_: any, i: number) => i % Math.max(1, Math.floor((processedTrendDays.length || 30) / 6)) === 0).map((d: any, idx: number) => (
                   <span key={idx}>{d.dateLabel}</span>
                 ))}
               </div>

@@ -238,7 +238,7 @@ export default function CounsellorDisplay() {
 
         {/* Action buttons */}
         <div className="flex items-center gap-2">
-          {user?.role !== "brand manager" && (
+          {/* {user?.role !== "brand manager" && (
             <button
               onClick={handleImportClick}
               className="flex items-center gap-1.5 text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-xl px-4 py-2 transition-all font-sans"
@@ -259,7 +259,7 @@ export default function CounsellorDisplay() {
               </svg>
               Import Excel
             </button>
-          )}
+          )} */}
           <button
             onClick={() => setIsModalOpen(true)}
             className="flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl px-4 py-2 shadow-md shadow-indigo-600/10 transition-all font-sans"
@@ -348,11 +348,10 @@ export default function CounsellorDisplay() {
                   <div
                     key={c.id}
                     onClick={() => setSelectedId(c.id)}
-                    className={`bg-white border rounded-2xl p-4 shadow-xs cursor-pointer transition-all duration-200 ${
-                      isSelected
+                    className={`bg-white border rounded-2xl p-4 shadow-xs cursor-pointer transition-all duration-200 ${isSelected
                         ? "border-indigo-500 ring-1 ring-indigo-500/20"
                         : "border-slate-200/80 hover:border-slate-300"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">

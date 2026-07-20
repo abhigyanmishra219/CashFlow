@@ -34,6 +34,10 @@ const UserSchema = new Schema(
       type: String,
       trim: true,
     },
+    brandLogo: {
+      type: String,
+      trim: true,
+    },
     brandScope: {
       type: String,
       trim: true,

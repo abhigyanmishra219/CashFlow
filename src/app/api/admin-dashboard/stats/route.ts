@@ -40,7 +40,10 @@ export async function GET(req: Request) {
 
     const thirtyDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
     thirtyDaysAgo.setHours(0, 0, 0, 0);
-    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
+
+    const trendStart = isFiltered ? targetStart : thirtyDaysAgo;
+    const trendEnd = isFiltered ? targetEnd : targetEnd;
+    const trendStartStr = trendStart.toISOString().split("T")[0];
 
     // Parallel execution of all primary data queries using MongoDB Aggregations
     const [
@@ -103,28 +106,28 @@ export async function GET(req: Request) {
         { $group: { _id: "$leadSource", count: { $sum: 1 } } }
       ]),
 
-      // 30-Day Trend Aggregations (Replaces 120-query loop with 4 single queries)
+      // Trend Aggregations (using +05:30 local timezone)
       Enquiry.aggregate([
-        { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+        { $match: { createdAt: { $gte: trendStart, $lte: trendEnd } } },
         {
           $group: {
-            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "+05:30" } },
             count: { $sum: 1 }
           }
         }
       ]),
       Admission.aggregate([
-        { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+        { $match: { createdAt: { $gte: trendStart, $lte: trendEnd } } },
         {
           $group: {
-            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "+05:30" } },
             count: { $sum: 1 }
           }
         }
       ]),
       Enquiry.aggregate([
         { $unwind: "$followUps" },
-        { $match: { "followUps.date": { $gte: thirtyDaysAgoStr } } },
+        { $match: { "followUps.date": { $gte: trendStartStr, $lte: endStr } } },
         {
           $group: {
             _id: "$followUps.date",
@@ -132,7 +135,7 @@ export async function GET(req: Request) {
           }
         }
       ]),
-      LostLeadCounter.find({ date: { $gte: thirtyDaysAgoStr } }).lean(),
+      LostLeadCounter.find({ date: { $gte: trendStartStr, $lte: endStr } }).lean(),
 
       // Counsellor data
       User.find({ role: "counsellor" }).select("name").lean(),
@@ -219,13 +222,23 @@ export async function GET(req: Request) {
     const followupTrendMap = new Map(thirtyDayFollowupTrends.map((g: any) => [g._id, g.count]));
     const lostLeadTrendMap = new Map(lostLeadTrends.map((l: any) => [l.date, l.count]));
 
+    const daysCount = isFiltered 
+      ? Math.max(1, Math.min(31, Math.round((targetEnd.getTime() - targetStart.getTime()) / (1000 * 60 * 60 * 24))))
+      : 30;
+
+    const endDateForTrend = isFiltered ? targetEnd : now;
+
     const trendDays = [];
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-      const dateStr = d.toISOString().split("T")[0];
+    for (let i = daysCount - 1; i >= 0; i--) {
+      const d = new Date(endDateForTrend.getFullYear(), endDateForTrend.getMonth(), endDateForTrend.getDate() - i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const dateStr = `${year}-${month}-${day}`;
       const dayLabel = `${d.getDate()} ${d.toLocaleString("en-US", { month: "short" })}`;
 
       trendDays.push({
+        dateStr,
         dateLabel: dayLabel,
         newLeads: enquiryTrendMap.get(dateStr) || 0,
         admissions: admissionTrendMap.get(dateStr) || 0,

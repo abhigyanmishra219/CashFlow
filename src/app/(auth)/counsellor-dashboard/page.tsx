@@ -401,8 +401,12 @@ export default function CounsellorDashboardPage() {
             </div>
 
             <div className="flex items-center gap-3 border-l border-slate-200 pl-5 cursor-pointer" onClick={() => setIsProfileOpen(true)}>
-              <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold overflow-hidden shadow-sm">
-                <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || "U")}&background=10b981&color=fff`} alt="User" className="h-full w-full object-cover" />
+              <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold overflow-hidden shadow-sm shrink-0">
+                {user.photoUrl ? (
+                  <img src={user.photoUrl} alt={user.name} className="h-full w-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                ) : (
+                  <span>{user.name ? user.name.charAt(0).toUpperCase() : "C"}</span>
+                )}
               </div>
               <div className="hidden sm:block">
                 <p className="text-sm font-bold text-slate-800 leading-tight">{user.name || ""}</p>

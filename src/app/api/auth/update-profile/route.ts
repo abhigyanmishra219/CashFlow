@@ -15,18 +15,18 @@ export async function PATCH(req: Request) {
     const decoded = await verifyJWT(token);
     if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
 
-    const { name, email, phone } = await req.json();
+    const { name, email, phone, photoUrl, brandLogo } = await req.json();
 
-    if (!name || !name.trim()) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
-    }
-    if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
-    }
+    const updateFields: any = {};
+    if (name) updateFields.name = name.trim();
+    if (email) updateFields.email = email.toLowerCase().trim();
+    if (phone !== undefined) updateFields.phone = phone.trim();
+    if (photoUrl !== undefined) updateFields.photoUrl = photoUrl.trim();
+    if (brandLogo !== undefined) updateFields.brandLogo = brandLogo.trim();
 
     const updatedUser = await User.findByIdAndUpdate(
       decoded.id,
-      { $set: { name: name.trim(), email: email.toLowerCase().trim(), phone: phone?.trim() } },
+      { $set: updateFields },
       { new: true, runValidators: true }
     );
 
@@ -59,7 +59,9 @@ export async function PATCH(req: Request) {
         name: updatedUser.name,
         email: updatedUser.email,
         role: updatedUser.role,
-        phone: (updatedUser as any).phone || ""
+        phone: (updatedUser as any).phone || "",
+        photoUrl: (updatedUser as any).photoUrl || "",
+        brandLogo: (updatedUser as any).brandLogo || ""
       }
     });
   } catch (error: any) {

@@ -44,6 +44,8 @@ export async function GET() {
         name: dbUser.name,
         role: dbUser.role,
         phone: (dbUser as any).phone || "",
+        photoUrl: (dbUser as any).photoUrl || "",
+        brandLogo: (dbUser as any).brandLogo || "",
       },
     });
   } catch (error) {

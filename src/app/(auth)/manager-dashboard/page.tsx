@@ -194,8 +194,11 @@ export default function ManagerDashboard() {
               onClick={() => setIsProfileOpen(true)}
               className="flex items-center gap-3 pl-4 border-l border-slate-200 cursor-pointer group"
             >
-              <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm shadow-sm group-hover:shadow transition-shadow">
-                {initialLetter}
+              <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm shadow-sm group-hover:shadow transition-shadow overflow-hidden shrink-0">
+                {user?.photoUrl ? (
+                  <img src={user.photoUrl} alt={user.name} className="h-full w-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                ) : null}
+                <span className={user?.photoUrl ? "hidden" : "block"}>{initialLetter}</span>
               </div>
               <div className="hidden lg:block text-right">
                 <p className="text-sm font-extrabold text-slate-800 leading-tight">{displayName}</p>

@@ -153,9 +153,9 @@ export default function LoginPage() {
                 <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
                   Password
                 </label>
-                <a href="#" className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors">
+                {/* <a href="#" className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors">
                   Forgot password?
-                </a>
+                </a> */}
               </div>
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
