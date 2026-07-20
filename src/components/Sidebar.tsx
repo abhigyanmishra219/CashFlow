@@ -19,7 +19,6 @@ interface SidebarGroup {
 
 export default function Sidebar() {
   const pathname = usePathname();
-<<<<<<< HEAD
   const { user, login, logout } = useUser();
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [localLogo, setLocalLogo] = useState<string>("");
@@ -52,7 +51,7 @@ export default function Sidebar() {
         setImgError(false);
         try {
           localStorage.setItem("app_brand_logo", result);
-        } catch (err) {}
+        } catch (err) { }
 
         try {
           const res = await fetch("/api/auth/update-profile", {
@@ -92,10 +91,6 @@ export default function Sidebar() {
       console.error("Failed to reset brand logo", err);
     }
   };
-=======
-  const { logout } = useUser();
-  const [isCollapsed, setIsCollapsed] = useState(false);
->>>>>>> dc1b9253e8045a990bf6bc34ad954e658b999c2d
 
   const groups: SidebarGroup[] = [
     {
@@ -235,9 +230,8 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`bg-slate-50/70 border-r border-slate-200/60 h-screen flex flex-col py-6 font-sans backdrop-blur-md transition-all duration-300 ${
-        isCollapsed ? "w-20 px-3" : "w-64 px-4"
-      }`}
+      className={`bg-slate-50/70 border-r border-slate-200/60 h-screen flex flex-col py-6 font-sans backdrop-blur-md transition-all duration-300 ${isCollapsed ? "w-20 px-3" : "w-64 px-4"
+        }`}
     >
       {/* Hidden File Input for Brand Logo */}
       <input
@@ -311,7 +305,7 @@ export default function Sidebar() {
             <ul className="space-y-1">
               {group.items.map((item) => {
                 const isActive = pathname === item.href;
-                
+
                 if (item.isLogout) {
                   return (
                     <li key={item.name}>
@@ -333,11 +327,10 @@ export default function Sidebar() {
                   <li key={item.name}>
                     <Link
                       href={item.href}
-                      className={`group flex items-center ${isCollapsed ? "justify-center" : "gap-3 px-3"} py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 ${
-                        isActive
+                      className={`group flex items-center ${isCollapsed ? "justify-center" : "gap-3 px-3"} py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 ${isActive
                           ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
                           : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-                      }`}
+                        }`}
                       title={isCollapsed ? item.name : undefined}
                     >
                       <span className={`${isActive ? "text-white" : "text-slate-400 group-hover:text-slate-700 transition-colors"}`}>
