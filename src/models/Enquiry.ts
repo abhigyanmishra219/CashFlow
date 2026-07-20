@@ -75,6 +75,16 @@ const EnquirySchema = new Schema(
     followUpNotes: {
       type: String,
     },
+    demos: [
+      {
+        date: String,
+        time: String,
+        mode: String,
+        notes: String,
+        status: { type: String, default: "Scheduled" },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
     isDemoScheduled: {
       type: Boolean,
       default: false,

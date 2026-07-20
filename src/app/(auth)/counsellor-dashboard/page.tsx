@@ -6,6 +6,8 @@ import CounsellorSidebar from "@/components/CounsellorSidebar";
 import Link from "next/link";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import CommandPalette from "@/components/CommandPalette";
+import ImportLeadsModal from "@/components/ImportLeadsModal";
+import StudentSearchCenter from "@/components/StudentSearchCenter";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 
 const containerVariants: Variants = {
@@ -36,6 +38,7 @@ const MOTIVATIONAL_QUOTES = [
 export default function CounsellorDashboardPage() {
   const { user, logout } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const [stats, setStats] = useState({
     leadsCount: 0,
@@ -107,16 +110,17 @@ export default function CounsellorDashboardPage() {
             return d.toISOString().split("T")[0] === todayStr;
           }).length;
 
-          // Follow-ups today
+          // Follow-ups today & pending tasks
           let fUpTodayCount = 0;
           let fUpList: any[] = [];
           myEnquiries.forEach((e: any) => {
             if (e.followUps && e.followUps.length > 0) {
               e.followUps.forEach((f: any) => {
-                if (f.date === todayStr) {
+                if (f.date === todayStr || !f.isCompleted) {
                   fUpTodayCount++;
                   fUpList.push({
-                    id: e._id + f._id,
+                    id: e._id + (f._id || Math.random().toString()),
+                    enquiryId: e._id,
                     name: e.studentFullName,
                     time: f.time || "TBD",
                     action: f.typeOfContact || "Call",
@@ -129,6 +133,22 @@ export default function CounsellorDashboardPage() {
                     priorityLevel: e.priorityLevel
                   });
                 }
+              });
+            } else if (e.status !== "Admitted" && e.status !== "Lost") {
+              fUpTodayCount++;
+              fUpList.push({
+                id: e._id,
+                enquiryId: e._id,
+                name: e.studentFullName,
+                time: "Today",
+                action: "Initial Contact",
+                completed: false,
+                text: `Initial Contact with ${e.studentFullName}`,
+                email: e.emailAddress,
+                number: e.primaryPhoneMobile,
+                course: e.targetCourse,
+                fee: e.expectedCourseFee,
+                priorityLevel: e.priorityLevel
               });
             }
           });
@@ -309,7 +329,17 @@ export default function CounsellorDashboardPage() {
             <h1 className="text-lg font-bold text-slate-800 tracking-tight">Dashboard</h1>
           </div>
 
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              className="flex items-center gap-1.5 text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 rounded-xl px-3.5 py-2 shadow-sm transition-all"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 text-slate-500">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+              </svg>
+              Upload Leads
+            </button>
+
             <div className="relative hidden md:block">
               <button 
                 onClick={() => setIsCommandPaletteOpen(true)}
@@ -425,6 +455,8 @@ export default function CounsellorDashboardPage() {
           initial="hidden"
           animate="show"
         >
+          {/* Student Search & Action Center */}
+          <StudentSearchCenter />
 
           {/* Top Metrics Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
@@ -587,6 +619,16 @@ export default function CounsellorDashboardPage() {
 
         </motion.div>
       </div>
+
+      <ImportLeadsModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => {
+          setIsImportModalOpen(false);
+          // refresh data if needed
+          window.location.reload();
+        }}
+      />
     </div>
   );
 }

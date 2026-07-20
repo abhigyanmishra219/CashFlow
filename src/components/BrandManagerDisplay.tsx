@@ -12,10 +12,21 @@ export default function BrandManagerDisplay() {
   const [brandsList, setBrandsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [enquiriesList, setEnquiriesList] = useState<any[]>([]);
+
   const fetchBrands = async () => {
     try {
-      const res = await fetch("/api/brands");
-      const data = await res.json();
+      const [brandsRes, enquiriesRes] = await Promise.all([
+        fetch("/api/brands"),
+        fetch("/api/enquiries")
+      ]);
+      const data = await brandsRes.json();
+      const enqData = await enquiriesRes.json();
+
+      if (enqData && enqData.enquiries) {
+        setEnquiriesList(enqData.enquiries);
+      }
+
       if (data.success && data.brands) {
         setBrandsList(data.brands);
         if (data.brands.length > 0 && !selectedBrandId) {
@@ -33,24 +44,53 @@ export default function BrandManagerDisplay() {
     fetchBrands();
   }, []);
 
-  const getBrandDetails = (b: any) => ({
-    id: b.brandId,
-    identity: b._id,
-    name: b.name,
-    initial: b.name.charAt(0).toUpperCase(),
-    color: "bg-indigo-600 text-white", // Default color
-    description: b.description || "No academic description listed.",
-    revenue: `₹${(b.stats?.revenue || 0).toLocaleString()}`,
-    counsellors: `${b.stats?.counsellorsCount || 0} Agents`,
-    brandManagers: `${b.stats?.brandManagersCount || 0} Execs`,
-    entities: `${b.stats?.entitiesCount || 0} Linked`,
-    entitiesCount: `${b.stats?.entitiesCount || 0} Legal`,
-    status: b.status || "ACTIVE",
-    phone: b.phone || "No listed phone",
-    email: b.email || "No support email",
-    website: b.website || "No listed website",
-    legalEntities: b.legalEntities || [],
-  });
+  const getBrandDetails = (b: any) => {
+    const brandNameLower = (b.name || "").toLowerCase().trim();
+    const brandEnquiries = enquiriesList.filter((e: any) => 
+      (e.targetBrand || "").toLowerCase().trim() === brandNameLower ||
+      (e.brand || "").toLowerCase().trim() === brandNameLower
+    );
+
+    const brandTotalLeads = brandEnquiries.length;
+    const brandDemos = brandEnquiries.filter((e: any) => 
+      e.isDemoScheduled || (e.demos && e.demos.length > 0) || (e.followUps || []).some((f: any) => f.typeOfContact === "Demo Class")
+    ).length;
+    const brandAdmissions = brandEnquiries.filter((e: any) => e.status === "Admitted").length;
+
+    const realRevenue = brandEnquiries.reduce((sum: number, e: any) => {
+      if (e.status === "Admitted") {
+        const fee = parseFloat(String(e.feesCollected || e.expectedConversionFee || "0").replace(/[^0-9.]/g, ""));
+        return sum + (isNaN(fee) ? 0 : fee);
+      }
+      return sum;
+    }, 0);
+
+    const totalRev = realRevenue > 0 ? realRevenue : (b.stats?.revenue || 0);
+    const convRate = brandTotalLeads > 0 ? ((brandAdmissions / brandTotalLeads) * 100).toFixed(1) : "0.0";
+
+    return {
+      id: b.brandId,
+      identity: b._id,
+      name: b.name,
+      initial: b.name.charAt(0).toUpperCase(),
+      color: "bg-indigo-600 text-white",
+      description: b.description || "No academic description listed.",
+      revenue: `₹${totalRev.toLocaleString("en-IN")}`,
+      counsellors: `${b.stats?.counsellorsCount || 0} Agents`,
+      brandManagers: `${b.stats?.brandManagersCount || 0} Execs`,
+      entities: `${b.stats?.entitiesCount || 0} Linked`,
+      entitiesCount: `${b.stats?.entitiesCount || 0} Legal`,
+      status: b.status || "ACTIVE",
+      phone: b.phone || "No listed phone",
+      email: b.email || "No support email",
+      website: b.website || "No listed website",
+      legalEntities: b.legalEntities || [],
+      brandTotalLeads,
+      brandDemos,
+      brandAdmissions,
+      brandConvRate: `${convRate}%`
+    };
+  };
 
   const selectedBrandRaw = brandsList.find((b) => b.brandId === selectedBrandId) || brandsList[0];
   const selectedBrand = selectedBrandRaw ? getBrandDetails(selectedBrandRaw) : null;
@@ -299,8 +339,35 @@ export default function BrandManagerDisplay() {
 
             {/* Brand Performance Dashboard */}
             <div>
-              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Brand Performance Dashboard</h4>
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Brand Manager Performance Dashboard</h4>
               
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div className="border border-slate-200 rounded-xl p-3 shadow-xs bg-white">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    Total Enquiries
+                  </span>
+                  <span className="text-base font-extrabold text-slate-800 tracking-tight">{selectedBrand.brandTotalLeads || 0}</span>
+                </div>
+                <div className="border border-purple-100 bg-purple-50/50 rounded-xl p-3 shadow-xs">
+                  <span className="text-[9px] font-bold text-purple-600 uppercase tracking-wider block mb-1">
+                    Demos Conducted
+                  </span>
+                  <span className="text-base font-extrabold text-purple-700 tracking-tight">{selectedBrand.brandDemos || 0}</span>
+                </div>
+                <div className="border border-emerald-100 bg-emerald-50/50 rounded-xl p-3 shadow-xs">
+                  <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider block mb-1">
+                    Admissions
+                  </span>
+                  <span className="text-base font-extrabold text-emerald-700 tracking-tight">{selectedBrand.brandAdmissions || 0}</span>
+                </div>
+                <div className="border border-blue-100 bg-blue-50/50 rounded-xl p-3 shadow-xs">
+                  <span className="text-[9px] font-bold text-blue-600 uppercase tracking-wider block mb-1">
+                    Conversion Rate
+                  </span>
+                  <span className="text-base font-extrabold text-blue-700 tracking-tight">{selectedBrand.brandConvRate || "0.0%"}</span>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className="border border-slate-200 rounded-xl p-3 shadow-sm bg-white">
                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">
@@ -312,17 +379,17 @@ export default function BrandManagerDisplay() {
                 <div className="border border-slate-200 rounded-xl p-3 shadow-sm bg-white">
                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M15 8.25H9m6 3H9m3 6l-3-3h1.5a3 3 0 100-6M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    Total Revenue
+                    Total Revenue Collected
                   </span>
                   <span className="text-lg font-extrabold text-indigo-600 tracking-tight">{selectedBrand.revenue}</span>
                 </div>
-                <div className="border border-slate-200 rounded-xl p-3 shadow-sm bg-white">
+              </div>
+              <div className="border border-slate-200 rounded-xl p-3 shadow-sm bg-white">
                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
                     Active Staff
                   </span>
                   <span className="text-lg font-extrabold text-slate-800 tracking-tight">{selectedBrand.counsellors}</span>
-                </div>
                 <div className="border border-slate-200 rounded-xl p-3 shadow-sm bg-white">
                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-1.81.588l1.234 5.265c.15.64-.533 1.141-1.077.782l-4.72-3.13a.563.563 0 00-.616 0l-4.72 3.13c-.544.36-1.228-.142-1.077-.782l1.234-5.265a.563.563 0 00-.181-.588L2.345 10.386c-.38-.325-.178-.948.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" /></svg>

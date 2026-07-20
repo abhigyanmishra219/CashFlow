@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useUser } from "../../../component/context/user-context";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
+import LeadProfile from "@/components/LeadProfile";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 
 const containerVariants: Variants = {
@@ -18,23 +19,30 @@ const itemVariants: Variants = {
 export default function CounsellorTasksPage() {
   const { user, logout } = useUser();
   const [enquiries, setEnquiries] = useState<any[]>([]);
+  const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [checklistFilter, setChecklistFilter] = useState("Show Pending Checklist");
   const [priorityFilter, setPriorityFilter] = useState("All Priorities");
   const [contactTypeFilter, setContactTypeFilter] = useState("All Contact Types");
 
-  useEffect(() => {
+  const fetchEnquiries = async () => {
     if (!user) return;
-    fetch("/api/enquiries")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          const myEnquiries = (data.data || []).filter(
-            (e: any) => (e.assignedCrmAdvisor || "").toLowerCase() === (user.name || "").toLowerCase()
-          );
-          setEnquiries(myEnquiries);
-        }
-      });
+    try {
+      const res = await fetch("/api/enquiries");
+      const data = await res.json();
+      if (data.success) {
+        const myEnquiries = (data.data || []).filter(
+          (e: any) => (e.assignedCrmAdvisor || "").toLowerCase() === (user.name || "").toLowerCase()
+        );
+        setEnquiries(myEnquiries);
+      }
+    } catch (e) {
+      console.error("Failed to fetch enquiries:", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchEnquiries();
   }, [user]);
 
   const filteredEnquiries = enquiries.filter((enq) => {
@@ -208,7 +216,8 @@ export default function CounsellorTasksPage() {
                     animate={{ opacity: 1, height: "auto", scale: 1 }}
                     exit={{ opacity: 0, height: 0, scale: 0.95, margin: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="flex items-center justify-between p-4 border border-slate-100 rounded-xl hover:shadow-md transition-shadow group overflow-hidden"
+                    className="flex items-center justify-between p-4 border border-slate-100 rounded-xl hover:shadow-md transition-shadow group overflow-hidden cursor-pointer hover:border-indigo-200"
+                    onClick={() => setSelectedLead(enq)}
                   >
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden shrink-0">
@@ -238,6 +247,12 @@ export default function CounsellorTasksPage() {
           </motion.div>
 
         </motion.div>
+
+        <LeadProfile
+          lead={selectedLead}
+          onClose={() => setSelectedLead(null)}
+          onSuccess={() => fetchEnquiries()}
+        />
       </div>
     </div>
   );

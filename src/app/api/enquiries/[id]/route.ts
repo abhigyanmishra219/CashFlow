@@ -12,9 +12,11 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
 
+    const updateQuery = (body.$set || body.$push || body.$pull) ? body : { $set: body };
+
     const updatedEnquiry = await Enquiry.findByIdAndUpdate(
       id,
-      { $set: body },
+      updateQuery,
       { returnDocument: 'after', runValidators: true }
     );
 

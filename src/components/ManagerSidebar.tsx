@@ -21,7 +21,7 @@ interface SidebarGroup {
 export default function ManagerSidebar() {
   const pathname = usePathname();
   const { logout } = useUser();
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const groups: SidebarGroup[] = [
     {
@@ -122,13 +122,10 @@ export default function ManagerSidebar() {
   ];
 
   return (
-    <div className="w-20 shrink-0 relative h-screen z-50">
-      <div
-        onMouseEnter={() => setIsCollapsed(false)}
-        onMouseLeave={() => setIsCollapsed(true)}
-        className={`h-screen bg-white border-r border-slate-100 flex flex-col transition-all duration-300 shadow-[2px_0_8px_-4px_rgba(0,0,0,0.05)] absolute top-0 left-0 ${isCollapsed ? "w-20" : "w-64"
-          }`}
-      >
+    <aside
+      className={`h-screen bg-white border-r border-slate-100 flex flex-col font-sans shrink-0 ${isCollapsed ? "w-20" : "w-64"
+        }`}
+    >
         {/* Brand / Logo Area */}
         <div className="h-20 flex items-center px-6 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-3 w-full">
@@ -222,7 +219,6 @@ export default function ManagerSidebar() {
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      </aside>
   );
 }
