@@ -27,15 +27,46 @@ export default function CounsellorDisplay() {
   const loadCounsellors = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("/api/counsellors");
-      const data = await response.json();
+      const [counsellorsRes, enquiriesRes] = await Promise.all([
+        fetch("/api/counsellors"),
+        fetch("/api/enquiries")
+      ]);
+      const data = await counsellorsRes.json();
+      const enqData = await enquiriesRes.json();
+      const enquiries = (enqData && enqData.enquiries) ? enqData.enquiries : [];
+
       if (data.success && data.counsellors && data.counsellors.length > 0) {
         const list = data.counsellors.map((c: any) => {
           const nameParts = (c.name || "").split(" ");
           const firstInitial = nameParts[0]?.[0] || "";
           const lastInitial = nameParts[1]?.[0] || "";
           const target = c.annualTarget || 500000;
-          const revenue = c.currentRevenue || 0;
+
+          const nameLower = (c.name || "").toLowerCase().trim();
+          const emailLower = (c.email || "").toLowerCase().trim();
+
+          const myEnquiries = enquiries.filter((e: any) => {
+            const advisorLower = (e.assignedCrmAdvisor || "").toLowerCase().trim();
+            return (nameLower && advisorLower.includes(nameLower)) || (emailLower && advisorLower.includes(emailLower));
+          });
+
+          const assignedLeadsCount = myEnquiries.length;
+          const demosCount = myEnquiries.filter((e: any) => 
+            e.isDemoScheduled || (e.demos && e.demos.length > 0) || (e.followUps || []).some((f: any) => f.typeOfContact === "Demo Class")
+          ).length;
+          const admissionsCount = myEnquiries.filter((e: any) => e.status === "Admitted").length;
+
+          const realRevenue = myEnquiries.reduce((sum: number, e: any) => {
+            if (e.status === "Admitted") {
+              const fee = parseFloat(String(e.feesCollected || e.expectedConversionFee || "0").replace(/[^0-9.]/g, ""));
+              return sum + (isNaN(fee) ? 0 : fee);
+            }
+            return sum;
+          }, 0);
+
+          const revenue = realRevenue > 0 ? realRevenue : (c.currentRevenue || 0);
+          const convRate = assignedLeadsCount > 0 ? ((admissionsCount / assignedLeadsCount) * 100).toFixed(1) : "0.0";
+
           return {
             id: c._id,
             registryId: `user-${c._id}`,
@@ -45,18 +76,24 @@ export default function CounsellorDisplay() {
             scope: c.brandScope || "Cadd Mantra",
             targetNum: target,
             revenueNum: revenue,
-            admissionsNum: c.admissionsRecorded || 0,
+            admissionsNum: admissionsCount || (c.admissionsRecorded || 0),
+            assignedLeadsNum: assignedLeadsCount,
+            demosNum: demosCount,
+            convRate: `${convRate}%`,
             targetCollected: `₹${revenue.toLocaleString("en-IN")} / ₹${target.toLocaleString("en-IN")}`,
             percentage: `${((revenue / Math.max(target, 1)) * 100).toFixed(1)}%`,
             status: "ACTIVE",
             annualTarget: `₹${target.toLocaleString("en-IN")}`,
             revenueCollected: `₹${revenue.toLocaleString("en-IN")}`,
             joiningDate: c.joiningDate ? new Date(c.joiningDate).toISOString().split("T")[0] : "—",
-            admissions: `${c.admissionsRecorded || 0} Admissions`,
+            admissions: `${admissionsCount || (c.admissionsRecorded || 0)} Seats`,
             initials: `${firstInitial}${lastInitial}`.toUpperCase() || "CU",
             scopeBadge: "Sales Counsellor Scope",
           };
         });
+
+        // Sort by revenue/conversion rate for performance leaderboard
+        list.sort((a: any, b: any) => b.revenueNum - a.revenueNum);
 
         // Filter for Brand Manager scope if applicable
         let finalDisplayList = list;
@@ -459,43 +496,59 @@ export default function CounsellorDisplay() {
                 </div>
               </div>
 
-              {/* Performance Ledger Goals */}
+              {/* Performance Ledger Goals & Analytics */}
               <div className="space-y-3">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block select-none font-sans">
-                  Performance Ledger Goals
+                  Counselor Performance & Conversion Analytics
                 </label>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
                     <span className="text-[9px] font-bold text-slate-400 uppercase block font-sans">
-                      Assigned Annual Target
+                      Assigned Enquiries
                     </span>
                     <span className="text-sm font-extrabold text-slate-800 block mt-1 font-sans">
-                      {selectedCounsellor.annualTarget}
+                      {selectedCounsellor.assignedLeadsNum || 0} Leads
+                    </span>
+                  </div>
+                  <div className="bg-purple-50/50 border border-purple-100 rounded-xl p-3">
+                    <span className="text-[9px] font-bold text-purple-600 uppercase block font-sans">
+                      Demos Conducted
+                    </span>
+                    <span className="text-sm font-extrabold text-purple-700 block mt-1 font-sans">
+                      {selectedCounsellor.demosNum || 0} Demos
+                    </span>
+                  </div>
+                  <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-3">
+                    <span className="text-[9px] font-bold text-emerald-600 uppercase block font-sans">
+                      Converted Seats
+                    </span>
+                    <span className="text-sm font-extrabold text-emerald-700 block mt-1 font-sans">
+                      {selectedCounsellor.admissionsNum || 0} Seats
                     </span>
                   </div>
                   <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
                     <span className="text-[9px] font-bold text-slate-400 uppercase block font-sans">
                       Revenue Collected
                     </span>
-                    <span className="text-sm font-extrabold text-blue-600 block mt-1 font-sans">
+                    <span className="text-sm font-extrabold text-indigo-600 block mt-1 font-sans">
                       {selectedCounsellor.revenueCollected}
                     </span>
                   </div>
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase block font-sans">
-                      Joining Date
+                  <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3">
+                    <span className="text-[9px] font-bold text-blue-600 uppercase block font-sans">
+                      Lead Conversion Rate
                     </span>
-                    <span className="text-xs font-bold text-slate-700 block mt-1.5 font-sans">
-                      {selectedCounsellor.joiningDate}
+                    <span className="text-sm font-extrabold text-blue-700 block mt-1 font-sans">
+                      {selectedCounsellor.convRate || "0.0%"}
                     </span>
                   </div>
                   <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
                     <span className="text-[9px] font-bold text-slate-400 uppercase block font-sans">
-                      Seats Admission
+                      Annual Target Goal
                     </span>
-                    <span className="text-xs font-extrabold text-emerald-600 block mt-1.5 font-sans">
-                      {selectedCounsellor.admissions}
+                    <span className="text-xs font-bold text-slate-700 block mt-1.5 font-sans">
+                      {selectedCounsellor.annualTarget}
                     </span>
                   </div>
                 </div>

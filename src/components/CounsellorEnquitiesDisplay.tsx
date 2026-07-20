@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import AddEnquiryModal from "./AddEnquiryModal";
+import ImportLeadsModal from "./ImportLeadsModal";
 import LeadProfile from "./LeadProfile";
 import { useUser } from "@/app/component/context/user-context";
 
@@ -9,6 +10,7 @@ export default function CounsellorEnquiriesDisplay() {
     const { user } = useUser();
     const [searchQuery, setSearchQuery] = useState("");
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [selectedLead, setSelectedLead] = useState<any | null>(null);
 
     const [enquiries, setEnquiries] = useState<any[]>([]);
@@ -211,6 +213,15 @@ export default function CounsellorEnquiriesDisplay() {
 
                 {/* Buttons */}
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setIsImportModalOpen(true)}
+                        className="flex items-center gap-1.5 text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 rounded-xl px-4 py-2 shadow-sm transition-all"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                        </svg>
+                        Upload Leads
+                    </button>
                     <button
                         onClick={() => setIsAddModalOpen(true)}
                         className="flex items-center gap-1.5 text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl px-4 py-2 shadow-md shadow-emerald-500/10 transition-all"
@@ -504,6 +515,12 @@ export default function CounsellorEnquiriesDisplay() {
             </div>
 
 
+
+            <ImportLeadsModal
+                isOpen={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
+                onSuccess={() => fetchEnquiries()}
+            />
 
             <AddEnquiryModal
                 isOpen={isAddModalOpen}

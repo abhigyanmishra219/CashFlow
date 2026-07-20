@@ -8,6 +8,7 @@ import ProfileDisplay from "@/components/ProfileDisplay";
 import CommandPalette from "@/components/CommandPalette";
 import DashboardFilter from "@/components/DashboardFilter";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
+import StudentSearchCenter from "@/components/StudentSearchCenter";
 
 export default function AdminDashboard() {
   const { user, logout } = useUser();
@@ -242,6 +243,9 @@ export default function AdminDashboard() {
         <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} />
 
         <div className="space-y-6">
+          {/* Student Search & Action Center */}
+          <StudentSearchCenter />
+
           <DashboardFilter 
             currentLabel={filterLabel} 
             onFilterChange={(start, end, label) => {

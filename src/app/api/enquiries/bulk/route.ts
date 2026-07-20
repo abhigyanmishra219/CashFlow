@@ -37,7 +37,13 @@ export async function POST(req: Request) {
       const row = leadsBatch[i];
       const rowNum = i + 1;
 
-      if (!row.name || !row.mobile || !row.brand || !row.course) {
+      // Brand determination with user brandScope fallback
+      const userBrandScope = (currentUser?.brandScope && currentUser.brandScope !== "All Brands" && currentUser.brandScope !== "All")
+        ? currentUser.brandScope
+        : "";
+      const leadBrand = String(row.brand || userBrandScope || "").trim();
+
+      if (!row.name || !row.mobile || !leadBrand || !row.course) {
         errors.push(`Row ${rowNum}: Missing required fields (Name, Mobile, Brand, Course).`);
         continue;
       }
@@ -63,16 +69,16 @@ export async function POST(req: Request) {
         }
       }
 
-      // Round-robin assignment logic
-      const leadBrand = String(row.brand).trim();
-
+      // Round-robin assignment logic or counsellor self-assignment
       const eligibleCounsellors = allCounsellors.filter((c: any) => 
         c.brandScope?.toLowerCase() === leadBrand.toLowerCase() || c.brandScope === "All Brands" || c.brandScope === "All"
       );
       
       let assignedName = currentUser?.name || "Unassigned";
       
-      if (eligibleCounsellors.length > 0) {
+      if (currentUser?.role === "counsellor" && currentUser?.name) {
+        assignedName = currentUser.name;
+      } else if (eligibleCounsellors.length > 0) {
         if (brandIndexMap[leadBrand] === undefined) {
           brandIndexMap[leadBrand] = 0;
         }
@@ -80,6 +86,9 @@ export async function POST(req: Request) {
         assignedName = eligibleCounsellors[cIndex].name;
         brandIndexMap[leadBrand]++;
       }
+
+      const todayDate = new Date().toISOString().split("T")[0];
+      const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
       finalLeads.push({
         studentFullName: String(row.name).trim(),
@@ -96,6 +105,18 @@ export async function POST(req: Request) {
         remarks: row.remarks ? String(row.remarks).trim() : "",
         assignedCrmAdvisor: assignedName,
         status: "New",
+        followUps: [
+          {
+            date: todayDate,
+            time: currentTime,
+            priority: row.priority ? String(row.priority).trim() : "Medium",
+            typeOfContact: "Initial Contact",
+            remarks: row.remarks ? String(row.remarks).trim() : "New lead uploaded and assigned",
+            status: "Pending",
+            plannedBy: currentUser?.name || "System",
+            isCompleted: false,
+          }
+        ]
       });
     }
 

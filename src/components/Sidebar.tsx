@@ -19,6 +19,7 @@ interface SidebarGroup {
 
 export default function Sidebar() {
   const pathname = usePathname();
+<<<<<<< HEAD
   const { user, login, logout } = useUser();
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [localLogo, setLocalLogo] = useState<string>("");
@@ -91,6 +92,10 @@ export default function Sidebar() {
       console.error("Failed to reset brand logo", err);
     }
   };
+=======
+  const { logout } = useUser();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+>>>>>>> dc1b9253e8045a990bf6bc34ad954e658b999c2d
 
   const groups: SidebarGroup[] = [
     {
@@ -230,8 +235,6 @@ export default function Sidebar() {
 
   return (
     <aside
-      onMouseEnter={() => setIsCollapsed(false)}
-      onMouseLeave={() => setIsCollapsed(true)}
       className={`bg-slate-50/70 border-r border-slate-200/60 h-screen flex flex-col py-6 font-sans backdrop-blur-md transition-all duration-300 ${
         isCollapsed ? "w-20 px-3" : "w-64 px-4"
       }`}
