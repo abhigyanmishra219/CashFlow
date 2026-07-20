@@ -29,6 +29,30 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
   const [taskRemarks, setTaskRemarks] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Complete Task Modal states
+  const [isCompleteTaskModalOpen, setIsCompleteTaskModalOpen] = useState(false);
+  const [taskToComplete, setTaskToComplete] = useState<any | null>(null);
+  const [completeRemarks, setCompleteRemarks] = useState("");
+  const [conversionChance, setConversionChance] = useState("High");
+  const [updateLeadStatus, setUpdateLeadStatus] = useState("Contacted");
+  const [isCompletingTask, setIsCompletingTask] = useState(false);
+
+  // Schedule Demo Modal states
+  const [isScheduleDemoModalOpen, setIsScheduleDemoModalOpen] = useState(false);
+  const [demoDate, setDemoDate] = useState("");
+  const [demoTime, setDemoTime] = useState("");
+  const [demoMode, setDemoMode] = useState("Online (Zoom/Google Meet)");
+  const [demoNotes, setDemoNotes] = useState("");
+  const [isSubmittingDemo, setIsSubmittingDemo] = useState(false);
+
+  // Mark Demo Attended Modal states
+  const [isMarkDemoAttendedModalOpen, setIsMarkDemoAttendedModalOpen] = useState(false);
+  const [demoToMarkAttendedIdx, setDemoToMarkAttendedIdx] = useState<number | null>(null);
+  const [demoAttendanceRemarks, setDemoAttendanceRemarks] = useState("");
+  const [demoConversionChance, setDemoConversionChance] = useState("High");
+  const [demoLeadStatus, setDemoLeadStatus] = useState("Demo Attended");
+  const [isSubmittingDemoAttendance, setIsSubmittingDemoAttendance] = useState(false);
+
   useEffect(() => {
     setLocalLead(lead);
     if (defaultOpenTaskModal) {
@@ -96,25 +120,276 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
     }
   };
 
-  const handleUpdateTaskStatus = async (taskId: string, isCompleted: boolean) => {
+  const handleDeleteTask = async (taskId: string) => {
+    if (!confirm("Are you sure you want to cancel and remove this follow-up task?")) {
+      return;
+    }
     try {
       const response = await fetch(`/api/enquiries/${localLead._id}/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ isCompleted }),
+        method: "DELETE",
       });
       const data = await response.json();
       if (data.success) {
         setLocalLead(data.data);
-        onSuccess?.();
+        if (onSuccess) onSuccess();
       } else {
-        alert("Failed to update task: " + data.message);
+        alert("Failed to remove task: " + (data.message || data.error));
       }
     } catch (e) {
       console.error(e);
-      alert("Error updating task.");
+      alert("Error removing task.");
+    }
+  };
+
+  const handleOpenCompleteTaskModal = (task: any) => {
+    setTaskToComplete(task);
+    setCompleteRemarks(task.remarks || "");
+    setConversionChance(localLead.priorityLevel || "High");
+    if (task.typeOfContact === "Demo Class" || (task.remarks || "").toLowerCase().includes("demo")) {
+      setUpdateLeadStatus("Demo Attended");
+    } else {
+      setUpdateLeadStatus(localLead.status || "Contacted");
+    }
+    setIsCompleteTaskModalOpen(true);
+  };
+
+  const handleOpenMarkDemoAttendedModal = (demoIdx: number, demo: any) => {
+    setDemoToMarkAttendedIdx(demoIdx);
+    setDemoAttendanceRemarks(demo.notes ? `Demo Attended (${demo.mode}): ${demo.notes}` : `Student attended ${demo.mode || "Demo Class"} successfully.`);
+    setDemoConversionChance(localLead.priorityLevel || "High");
+    setDemoLeadStatus("Demo Attended");
+    setIsMarkDemoAttendedModalOpen(true);
+  };
+
+  const handleMarkDemoAttendedSubmit = async () => {
+    if (demoToMarkAttendedIdx === null) return;
+    setIsSubmittingDemoAttendance(true);
+    try {
+      const updatedDemos = activeDemoList.map((d: any, i: number) => {
+        if (i === demoToMarkAttendedIdx) {
+          return {
+            ...d,
+            status: "Attended",
+            notes: demoAttendanceRemarks,
+            attendedAt: new Date().toISOString()
+          };
+        }
+        return d;
+      });
+
+      const res = await fetch(`/api/enquiries/${localLead._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          demos: updatedDemos,
+          status: demoLeadStatus,
+          priorityLevel: demoConversionChance,
+          remarks: demoAttendanceRemarks,
+          followUpNotes: demoAttendanceRemarks
+        })
+      });
+
+      const data = await res.json();
+      if (data.success || data.enquiry) {
+        setLocalLead(data.enquiry || {
+          ...localLead,
+          demos: updatedDemos,
+          status: demoLeadStatus,
+          priorityLevel: demoConversionChance
+        });
+        setIsMarkDemoAttendedModalOpen(false);
+        setDemoToMarkAttendedIdx(null);
+        if (onSuccess) onSuccess();
+        alert("Demo marked as Attended!");
+      } else {
+        alert("Failed to update demo attendance: " + (data.message || data.error));
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error marking demo attended.");
+    } finally {
+      setIsSubmittingDemoAttendance(false);
+    }
+  };
+
+  const handleCompleteTaskSubmit = async () => {
+    if (!taskToComplete) return;
+    setIsCompletingTask(true);
+    try {
+      const response = await fetch(`/api/enquiries/${localLead._id}/tasks/${taskToComplete._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          isCompleted: true,
+          status: "Completed",
+          remarks: completeRemarks,
+          conversionChance: conversionChance,
+          leadStatus: updateLeadStatus
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setLocalLead(data.data);
+        setIsCompleteTaskModalOpen(false);
+        setTaskToComplete(null);
+        if (onSuccess) onSuccess();
+      } else {
+        alert("Failed to update task: " + (data.message || data.error));
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error completing task.");
+    } finally {
+      setIsCompletingTask(false);
+    }
+  };
+
+  const handleScheduleDemoSubmit = async () => {
+    if (!demoDate || !demoTime) {
+      return alert("Please select Demo Date and Time.");
+    }
+    setIsSubmittingDemo(true);
+    try {
+      const demoItem = {
+        date: demoDate,
+        time: demoTime,
+        mode: demoMode,
+        notes: demoNotes,
+        status: "Scheduled",
+        createdAt: new Date().toISOString()
+      };
+
+      const res = await fetch(`/api/enquiries/${localLead._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          $set: {
+            isDemoScheduled: true,
+            demoDate,
+            demoTime,
+            demoNotes: `${demoMode} - ${demoNotes}`,
+            status: "Demo Scheduled",
+          },
+          $push: {
+            demos: demoItem
+          }
+        }),
+      });
+
+      await fetch(`/api/enquiries/${localLead._id}/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: demoDate,
+          time: demoTime,
+          priority: "High",
+          typeOfContact: "Demo Class",
+          remarks: `Demo Scheduled (${demoMode}): ${demoNotes || "Live demo session"}`
+        })
+      });
+
+      const data = await res.json();
+      if (data.success || data.enquiry) {
+        const updated = data.enquiry || data.data || {
+          ...localLead,
+          isDemoScheduled: true,
+          demoDate,
+          demoTime,
+          demoNotes: `${demoMode} - ${demoNotes}`,
+          status: "Demo Scheduled",
+          demos: [...(localLead.demos || []), demoItem]
+        };
+        setLocalLead(updated);
+        setIsScheduleDemoModalOpen(false);
+        if (onSuccess) onSuccess();
+        alert("Demo Scheduled successfully!");
+      } else {
+        alert("Failed to schedule demo: " + (data.message || data.error));
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error scheduling demo.");
+    } finally {
+      setIsSubmittingDemo(false);
+    }
+  };
+
+  const handleOpenScheduleDemoModal = () => {
+    if (!demoDate) {
+      setDemoDate(new Date().toISOString().split('T')[0]);
+    }
+    if (!demoTime) {
+      setDemoTime("11:00");
+    }
+    setIsScheduleDemoModalOpen(true);
+  };
+
+  // Aggregate all demo records (demos array, followUp tasks, legacy demo fields)
+  const getDemoList = () => {
+    const list: any[] = [];
+    if (localLead?.demos && localLead.demos.length > 0) {
+      list.push(...localLead.demos);
+    }
+    if (localLead?.followUps && localLead.followUps.length > 0) {
+      localLead.followUps.forEach((f: any) => {
+        if (f.typeOfContact === "Demo Class" || (f.remarks || "").toLowerCase().includes("demo")) {
+          const exists = list.some(d => d.date === f.date && d.time === f.time);
+          if (!exists) {
+            list.push({
+              _id: f._id,
+              date: f.date,
+              time: f.time,
+              mode: "Demo Session",
+              notes: f.remarks,
+              status: f.isCompleted ? "Completed" : (f.status || "Scheduled"),
+              createdAt: f.createdAt
+            });
+          }
+        }
+      });
+    }
+    if (list.length === 0 && localLead?.isDemoScheduled && localLead?.demoDate) {
+      list.push({
+        date: localLead.demoDate,
+        time: localLead.demoTime || "12:00",
+        mode: "Demo Class",
+        notes: localLead.demoNotes || "Scheduled Demo Class",
+        status: "Scheduled"
+      });
+    }
+    return list;
+  };
+
+  const activeDemoList = getDemoList();
+
+  const handleUpdateDemoStatus = async (demoIdx: number, newStatus: string) => {
+    try {
+      const updatedDemos = activeDemoList.map((d: any, i: number) => {
+        if (i === demoIdx) {
+          return { ...d, status: newStatus };
+        }
+        return d;
+      });
+
+      const res = await fetch(`/api/enquiries/${localLead._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          demos: updatedDemos,
+          ...(newStatus === "Attended" ? { status: "Demo Attended" } : {})
+        })
+      });
+
+      const data = await res.json();
+      if (data.success || data.enquiry) {
+        setLocalLead(data.enquiry || { ...localLead, demos: updatedDemos, ...(newStatus === "Attended" ? { status: "Demo Attended" } : {}) });
+        if (onSuccess) onSuccess();
+      } else {
+        alert("Failed to update demo status: " + (data.message || data.error));
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error updating demo status.");
     }
   };
 
@@ -174,6 +449,12 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
               </svg>
               Log Follow-up
             </button>
+            <button onClick={() => setIsScheduleDemoModalOpen(true)} className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition-colors shadow-xs">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+              Schedule Demo
+            </button>
             <button onClick={() => setIsAdmissionModalOpen(true)} className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-500 border border-emerald-600 rounded-xl hover:bg-emerald-600 transition-colors shadow-sm shadow-emerald-500/20">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
@@ -190,7 +471,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
 
         {/* TABS */}
         <div className="bg-white border-b border-slate-200 px-6 flex items-center gap-8 shrink-0 overflow-x-auto">
-          {["Overview", "Timeline History", "Follow-ups Tasker"].map((tab) => (
+          {["Overview", "Timeline History", "Follow-ups Tasker", "Demo History"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -215,7 +496,12 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 )}
-                {tab}
+                {tab === "Demo History" && (
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 text-purple-600">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                  </svg>
+                )}
+                <span>{tab}</span>
               </div>
             </button>
           ))}
@@ -442,12 +728,20 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                             <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${task.isCompleted ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
                               {task.status || (task.isCompleted ? "Completed" : "Pending")}
                             </span>
-                            <button onClick={() => handleUpdateTaskStatus(task._id, true)} className={`transition-colors p-1.5 rounded-full ${task.isCompleted ? 'text-white bg-emerald-500' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50'}`}>
+                            <button
+                              title="Complete Task & Log Remarks"
+                              onClick={() => handleOpenCompleteTaskModal(task)}
+                              className={`transition-colors p-1.5 rounded-full cursor-pointer ${task.isCompleted ? 'text-white bg-emerald-500' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50'}`}
+                            >
                               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                               </svg>
                             </button>
-                            <button onClick={() => handleUpdateTaskStatus(task._id, false)} className={`transition-colors p-1.5 rounded-full ${!task.isCompleted && task.isCompleted !== undefined ? 'text-slate-300' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-50'}`}>
+                            <button
+                              title="Cancel & Delete Task"
+                              onClick={() => handleDeleteTask(task._id)}
+                              className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-full transition-colors cursor-pointer"
+                            >
                               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                               </svg>
@@ -458,6 +752,110 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                     ) : (
                       <div className="text-center py-10">
                         <p className="text-slate-400 text-sm font-semibold">No follow-up tasks scheduled yet.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : activeTab === "Demo History" ? (
+                <div className="flex flex-col h-full space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-sm font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
+                        Scheduled & Past Demo Sessions
+                        <span className="bg-purple-100 text-purple-700 text-xs px-2.5 py-0.5 rounded-full font-bold">
+                          {activeDemoList.length}
+                        </span>
+                      </h2>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">Complete record of all demo classes, online links, and attendance logs for {localLead.studentFullName}.</p>
+                    </div>
+                    <button
+                      onClick={handleOpenScheduleDemoModal}
+                      className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-sm shadow-purple-500/20 cursor-pointer"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+                      Schedule Demo Class
+                    </button>
+                  </div>
+
+                  {/* Demo List */}
+                  <div className="space-y-4">
+                    {activeDemoList.length > 0 ? (
+                      activeDemoList.slice().reverse().map((demo: any, dIdx: number) => (
+                        <div key={dIdx} className="bg-white border border-purple-100 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                                </svg>
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                  {demo.mode || "Demo Session"}
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                                    demo.status === "Attended" || demo.status === "Completed"
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : demo.status === "Cancelled"
+                                      ? "bg-rose-100 text-rose-700"
+                                      : "bg-purple-100 text-purple-700"
+                                  }`}>
+                                    {demo.status || "Scheduled"}
+                                  </span>
+                                </h4>
+                                <p className="text-xs font-semibold text-slate-500 mt-0.5 font-mono">
+                                  Scheduled: {demo.date} at {demo.time}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {demo.status !== "Attended" && demo.status !== "Completed" && (
+                                <button
+                                  onClick={() => handleOpenMarkDemoAttendedModal(dIdx, demo)}
+                                  className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  Mark Attended
+                                </button>
+                              )}
+                              <button
+                                onClick={handleOpenScheduleDemoModal}
+                                className="bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                              >
+                                Reschedule
+                              </button>
+                            </div>
+                          </div>
+
+                          {demo.notes && (
+                            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs font-medium text-slate-700 mb-3">
+                              <span className="font-bold text-slate-400 uppercase text-[10px] block mb-1">Notes / Instructions:</span>
+                              {demo.notes}
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] text-slate-400 font-medium">
+                            <span>Course: <strong className="text-slate-700">{localLead.targetCourse}</strong></span>
+                            <span>Logged on: {demo.createdAt ? new Date(demo.createdAt).toLocaleDateString() : "Recently"}</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="bg-white border border-slate-200/60 rounded-2xl p-12 text-center flex flex-col items-center justify-center">
+                        <div className="h-12 w-12 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center mb-3">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-sm font-bold text-slate-700 mb-1">No Demo History Found</h3>
+                        <p className="text-xs text-slate-500 max-w-sm mb-4">No demo classes have been scheduled or completed for {localLead.studentFullName} yet.</p>
+                        <button
+                          onClick={handleOpenScheduleDemoModal}
+                          className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
+                        >
+                          Schedule First Demo
+                        </button>
                       </div>
                     )}
                   </div>
@@ -490,6 +888,22 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                     <p className="text-sm font-bold text-slate-800 mt-0.5">{localLead.createdAt ? new Date(localLead.createdAt).toISOString().split('T')[0] : "N/A"}</p>
                   </div>
                 </div>
+
+                {localLead.isDemoScheduled && (
+                  <div className="bg-purple-50 rounded-xl p-3 border border-purple-100 mb-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">Scheduled Demo</p>
+                      <p className="text-xs font-bold text-purple-950 mt-0.5">{localLead.demoDate} at {localLead.demoTime}</p>
+                      {localLead.demoNotes && <p className="text-[11px] font-medium text-purple-700/80 truncate max-w-[200px]">{localLead.demoNotes}</p>}
+                    </div>
+                    <button
+                      onClick={() => setIsScheduleDemoModalOpen(true)}
+                      className="text-[10px] font-bold bg-white text-purple-700 border border-purple-200 px-2.5 py-1 rounded-lg hover:bg-purple-100 transition-colors shadow-xs"
+                    >
+                      Reschedule
+                    </button>
+                  </div>
+                )}
 
                 <div className="flex flex-col gap-2">
                   <button className="w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm">
@@ -606,14 +1020,317 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
         lead={localLead}
       />
 
-      <DeleteConfirmModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={confirmDeleteLead}
-        title="Delete Lead"
-        itemName={localLead.studentFullName || "this lead"}
-        isLoading={isDeletingLead}
-      />
+      {/* COMPLETE TASK & LOG REMARKS MODAL OVERLAY */}
+      {isCompleteTaskModalOpen && taskToComplete && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-emerald-50/50">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">Complete Follow-up Task</h3>
+                  <p className="text-xs font-semibold text-slate-500">[{taskToComplete.typeOfContact}] scheduled for {taskToComplete.date} at {taskToComplete.time}</p>
+                </div>
+              </div>
+              <button onClick={() => setIsCompleteTaskModalOpen(false)} className="text-slate-400 hover:text-slate-700 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Form Content */}
+            <div className="px-6 py-6 overflow-y-auto max-h-[75vh] flex flex-col gap-5">
+              {/* Interaction Remarks / Notes */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Interaction Remarks / Outcome *
+                </label>
+                <textarea
+                  value={completeRemarks}
+                  onChange={(e) => setCompleteRemarks(e.target.value)}
+                  rows={3}
+                  placeholder="Log what happened during this call/meeting (e.g. Student requested fee discount, demo scheduled for Friday)..."
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all resize-none bg-white"
+                />
+              </div>
+
+              {/* Conversion Chances / Priority */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Conversion Chance / Interest Level *
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: "High (Hot)", value: "High", color: "border-emerald-300 bg-emerald-50 text-emerald-700" },
+                    { label: "Medium (Warm)", value: "Medium", color: "border-amber-300 bg-amber-50 text-amber-700" },
+                    { label: "Low (Cold)", value: "Low", color: "border-slate-300 bg-slate-50 text-slate-700" },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setConversionChance(option.value)}
+                      className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
+                        conversionChance === option.value
+                          ? `${option.color} shadow-sm ring-2 ring-emerald-500/20`
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Lead Status Update */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Update Lead Pipeline Status
+                </label>
+                <select
+                  value={updateLeadStatus}
+                  onChange={(e) => setUpdateLeadStatus(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all bg-white"
+                >
+                  <option value="New">New</option>
+                  <option value="Contacted">Contacted</option>
+                  <option value="Interested">Interested</option>
+                  <option value="Demo Scheduled">Demo Scheduled</option>
+                  <option value="Demo Attended">Demo Attended</option>
+                  <option value="Lost">Lost</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isCompletingTask}
+                onClick={() => setIsCompleteTaskModalOpen(false)}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors border border-slate-200 bg-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isCompletingTask}
+                onClick={handleCompleteTaskSubmit}
+                className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50"
+              >
+                {isCompletingTask ? "Saving..." : "Mark Completed & Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SCHEDULE DEMO MODAL OVERLAY */}
+      {isScheduleDemoModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-purple-50/60">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">Schedule Demo Class</h3>
+                  <p className="text-xs font-semibold text-purple-600">For {localLead.studentFullName}</p>
+                </div>
+              </div>
+              <button onClick={() => setIsScheduleDemoModalOpen(false)} className="text-slate-400 hover:text-slate-700 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Form Body */}
+            <div className="px-6 py-6 overflow-y-auto max-h-[75vh] flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Demo Date *</label>
+                <input
+                  type="date"
+                  value={demoDate}
+                  onChange={(e) => setDemoDate(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all bg-white"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Demo Time *</label>
+                <input
+                  type="time"
+                  value={demoTime}
+                  onChange={(e) => setDemoTime(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all bg-white"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Demo Mode *</label>
+                <select
+                  value={demoMode}
+                  onChange={(e) => setDemoMode(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all bg-white"
+                >
+                  <option value="Online (Zoom/Google Meet)">Online (Zoom / Google Meet)</option>
+                  <option value="In-Person Classroom">In-Person Classroom</option>
+                  <option value="Recorded Demo Session">Recorded Demo Session</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Demo Topic / Notes</label>
+                <textarea
+                  value={demoNotes}
+                  onChange={(e) => setDemoNotes(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Intro lecture on Data Analytics, Room 204 or Meeting Link..."
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all resize-none bg-white"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isSubmittingDemo}
+                onClick={() => setIsScheduleDemoModalOpen(false)}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors border border-slate-200 bg-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingDemo}
+                onClick={handleScheduleDemoSubmit}
+                className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 transition-colors shadow-sm disabled:opacity-50"
+              >
+                {isSubmittingDemo ? "Scheduling..." : "Save & Schedule Demo"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MARK DEMO ATTENDED MODAL OVERLAY */}
+      {isMarkDemoAttendedModalOpen && demoToMarkAttendedIdx !== null && (
+        <div className="fixed inset-0 z-[75] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-emerald-50/70">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">Log Demo Attendance & Outcome</h3>
+                  <p className="text-xs font-semibold text-emerald-700">For {localLead.studentFullName}</p>
+                </div>
+              </div>
+              <button onClick={() => setIsMarkDemoAttendedModalOpen(false)} className="text-slate-400 hover:text-slate-700 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Form Content */}
+            <div className="px-6 py-6 overflow-y-auto max-h-[75vh] flex flex-col gap-5">
+              {/* Interaction Remarks / Demo Outcome */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Demo Class Outcome & Remarks *
+                </label>
+                <textarea
+                  value={demoAttendanceRemarks}
+                  onChange={(e) => setDemoAttendanceRemarks(e.target.value)}
+                  rows={3}
+                  placeholder="Log how the demo class went (e.g., Student attended Zoom class, requested fee discount, ready for admission)..."
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all resize-none bg-white"
+                />
+              </div>
+
+              {/* Conversion Chances / Interest Level */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Post-Demo Conversion Chance / Interest *
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: "High (Hot)", value: "High", color: "border-emerald-300 bg-emerald-50 text-emerald-700" },
+                    { label: "Medium (Warm)", value: "Medium", color: "border-amber-300 bg-amber-50 text-amber-700" },
+                    { label: "Low (Cold)", value: "Low", color: "border-slate-300 bg-slate-50 text-slate-700" },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setDemoConversionChance(option.value)}
+                      className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer ${
+                        demoConversionChance === option.value
+                          ? `${option.color} shadow-sm ring-2 ring-emerald-500/20`
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Lead Pipeline Status Update */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Update Lead Pipeline Status
+                </label>
+                <select
+                  value={demoLeadStatus}
+                  onChange={(e) => setDemoLeadStatus(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all bg-white"
+                >
+                  <option value="Demo Attended">Demo Attended</option>
+                  <option value="Interested">Interested</option>
+                  <option value="Contacted">Contacted</option>
+                  <option value="Lost">Lost</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isSubmittingDemoAttendance}
+                onClick={() => setIsMarkDemoAttendedModalOpen(false)}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors border border-slate-200 bg-white cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingDemoAttendance}
+                onClick={handleMarkDemoAttendedSubmit}
+                className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+              >
+                {isSubmittingDemoAttendance ? "Saving..." : "Mark Attended & Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -20,7 +20,7 @@ interface SidebarGroup {
 export default function Sidebar() {
   const pathname = usePathname();
   const { logout } = useUser();
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const groups: SidebarGroup[] = [
     {
@@ -160,8 +160,6 @@ export default function Sidebar() {
 
   return (
     <aside
-      onMouseEnter={() => setIsCollapsed(false)}
-      onMouseLeave={() => setIsCollapsed(true)}
       className={`bg-slate-50/70 border-r border-slate-200/60 h-screen flex flex-col py-6 font-sans backdrop-blur-md transition-all duration-300 ${
         isCollapsed ? "w-20 px-3" : "w-64 px-4"
       }`}

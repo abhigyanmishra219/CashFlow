@@ -5,6 +5,8 @@ import ManagerSidebar from "@/components/ManagerSidebar";
 import { useUser } from "../../component/context/user-context";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import CommandPalette from "@/components/CommandPalette";
+import ImportLeadsModal from "@/components/ImportLeadsModal";
+import StudentSearchCenter from "@/components/StudentSearchCenter";
 
 interface DashboardStats {
   selectedBrand: string;
@@ -60,6 +62,7 @@ export default function ManagerDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Fetch Dashboard Stats from Backend API
   const fetchStats = async (brandParam?: string) => {
@@ -168,8 +171,16 @@ export default function ManagerDashboard() {
             <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Dashboard</h2>
           </div>
 
-          <div className="flex items-center gap-6">
-
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              className="flex items-center gap-1.5 text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 rounded-xl px-4 py-2 shadow-sm transition-all"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 text-slate-500">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+              </svg>
+              Upload Leads
+            </button>
 
             {/* Search Input Button */}
             <div className="relative hidden md:block">
@@ -209,6 +220,8 @@ export default function ManagerDashboard() {
 
         {/* Dashboard Content */}
         <main className="p-8 pb-32 space-y-6">
+          {/* Student Search & Action Center */}
+          <StudentSearchCenter />
           
           {/* KPI Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
@@ -545,6 +558,11 @@ export default function ManagerDashboard() {
       </div>
 
       {user && <ProfileDisplay isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} logout={logout} />}
+      <ImportLeadsModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => fetchStats(selectedBrand)}
+      />
     </div>
   );
 }
