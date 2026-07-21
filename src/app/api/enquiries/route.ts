@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
+import Task from "@/models/Task";
 import { getUserFromCookies } from "@/lib/helper";
 
 export async function POST(req: Request) {
@@ -36,6 +37,31 @@ export async function POST(req: Request) {
     }
 
     const newEnquiry = await Enquiry.create(body);
+
+    // AUTO TASK ENGINE: Generate Call Lead task
+    try {
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 1); // Due in 24h
+      await Task.create({
+        title: `Call Lead: ${newEnquiry.studentFullName}`,
+        description: `Initial contact & course counseling call for ${newEnquiry.targetCourse || 'Program'}.`,
+        taskType: "Lead Call",
+        linkedStudentName: newEnquiry.studentFullName,
+        linkedEnquiryId: newEnquiry._id.toString(),
+        assignedTo: newEnquiry.assignedCrmAdvisor || "Unassigned",
+        priority: newEnquiry.priorityLevel === "High" ? "High" : "Medium",
+        status: "Pending",
+        dueDate,
+        checklist: [
+          { text: "Call candidate and introduce institute programs", isCompleted: false },
+          { text: "Verify course preference & learning timeline", isCompleted: false },
+          { text: "Schedule free Demo session or campus visit", isCompleted: false }
+        ],
+        autoTriggerSource: "Auto Event: Lead Registered"
+      });
+    } catch (taskErr) {
+      console.error("Auto task trigger error on enquiry create:", taskErr);
+    }
 
     return NextResponse.json(
       { success: true, data: newEnquiry, message: "Enquiry created successfully" },

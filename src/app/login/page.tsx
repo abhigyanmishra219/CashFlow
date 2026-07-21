@@ -47,7 +47,15 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      let data: any = {};
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        setErrors({ email: text.includes("Internal") ? "Server error occurred. Please try again." : text });
+        return;
+      }
 
       if (!response.ok) {
         setErrors({ email: data.error || "Login failed. Please check your credentials." });
@@ -63,7 +71,7 @@ export default function LoginPage() {
         }
       }
     } catch (err) {
-      setErrors({ email: "An unexpected network error occurred. Please try again." });
+      setErrors({ email: "An unexpected error occurred. Please try again." });
       console.error(err);
     } finally {
       setIsLoading(false);

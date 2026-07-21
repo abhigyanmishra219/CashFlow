@@ -16,7 +16,10 @@ export async function getUserFromCookies() {
     // Retrieve the user from the database, omitting the password field
     const userDoc = await User.findById(decoded.id).select("-password").lean();
     return userDoc;
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.digest === 'DYNAMIC_SERVER_USAGE' || error?.message?.includes("Dynamic server usage")) {
+      throw error;
+    }
     console.error("Error in getUserFromCookies:", error);
     return null;
   }

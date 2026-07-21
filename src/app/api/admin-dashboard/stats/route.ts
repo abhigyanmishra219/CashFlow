@@ -18,6 +18,8 @@ export async function GET(req: Request) {
 
     const now = new Date();
     const todayStr = now.toISOString().split("T")[0];
+    const firstDayOfMonthStr = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+
     let targetStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     let targetEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     let startStr = todayStr;
@@ -56,6 +58,9 @@ export async function GET(req: Request) {
       lostLeadsToday,
       pendingFeesCount,
       totalPayments,
+      todayPayments,
+      monthlyPayments,
+      overdueAdmissions,
       pendingCalls,
       hotLeads,
       statusCountsGroup,
@@ -85,7 +90,10 @@ export async function GET(req: Request) {
       Admission.countDocuments({ createdAt: dateRangeFilter }),
       LostLeadCounter.find({ date: { $gte: startStr, $lte: endStr } }).lean(),
       Admission.countDocuments({ ...globalFilter, remainingBalance: { $gt: 0 } }),
-      Payment.find(isFiltered ? { date: stringDateFilter } : {}).select("amountReceived").lean(),
+      Payment.find(isFiltered ? { date: stringDateFilter } : {}).select("amountReceived date").lean(),
+      Payment.find({ date: stringDateFilter }).select("amountReceived").lean(),
+      Payment.find({ date: { $gte: firstDayOfMonthStr, $lte: todayStr } }).select("amountReceived").lean(),
+      Admission.find({ remainingBalance: { $gt: 0 } }).select("fullName remainingBalance").lean(),
       Enquiry.countDocuments({
         followUps: {
           $elemMatch: {
@@ -183,6 +191,21 @@ export async function GET(req: Request) {
       totalCollection += Number(p.amountReceived || 0);
     });
 
+    let todayCollectionSum = 0;
+    todayPayments.forEach((p: any) => {
+      todayCollectionSum += Number(p.amountReceived || 0);
+    });
+
+    let monthlyCollectionSum = 0;
+    monthlyPayments.forEach((p: any) => {
+      monthlyCollectionSum += Number(p.amountReceived || 0);
+    });
+
+    let totalOverdueAmount = 0;
+    overdueAdmissions.forEach((a: any) => {
+      totalOverdueAmount += Number(a.remainingBalance || 0);
+    });
+
     const conversionRate = totalLeads > 0 ? ((admissionsTotal / totalLeads) * 100).toFixed(1) + "%" : "0%";
 
     const kpis = {
@@ -194,6 +217,11 @@ export async function GET(req: Request) {
       lostLeadsToday: (Array.isArray(lostLeadsToday) ? lostLeadsToday : []).reduce((sum, item) => sum + (item.count || 0), 0),
       conversionRate,
       revenue: `₹${(totalCollection / 100000).toFixed(2)} L`,
+      todayCollection: `₹${todayCollectionSum.toLocaleString("en-IN")}`,
+      monthlyCollection: `₹${(monthlyCollectionSum / 100000).toFixed(2)} L`,
+      emiOverdueCount: overdueAdmissions.length,
+      emiOverdueAmount: `₹${(totalOverdueAmount / 100000).toFixed(2)} L`,
+      pendingApprovals: hotLeads, // Negotiation & special discount requests
       pendingCalls,
       hotLeads,
     };
