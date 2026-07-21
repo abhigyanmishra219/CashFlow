@@ -4,256 +4,521 @@ import React, { useState, useEffect } from "react";
 import { useUser } from "../../../component/context/user-context";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
 import LeadProfile from "@/components/LeadProfile";
-import { motion, AnimatePresence, Variants } from "framer-motion";
-
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
-};
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function CounsellorTasksPage() {
-  const { user, logout } = useUser();
-  const [enquiries, setEnquiries] = useState<any[]>([]);
+  const { user } = useUser();
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
+  
+  // Filters & Tabs
+  const [activeTab, setActiveTab] = useState<"all" | "today" | "overdue" | "escalated">("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [checklistFilter, setChecklistFilter] = useState("Show Pending Checklist");
-  const [priorityFilter, setPriorityFilter] = useState("All Priorities");
-  const [contactTypeFilter, setContactTypeFilter] = useState("All Contact Types");
+  const [priorityFilter, setPriorityFilter] = useState("All");
+  const [typeFilter, setTypeFilter] = useState("All");
 
-  const fetchEnquiries = async () => {
+  // New Manual Task Modal
+  const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newType, setNewType] = useState("Lead Call");
+  const [newStudent, setNewStudent] = useState("");
+  const [newPriority, setNewPriority] = useState("High");
+  const [newDueDate, setNewDueDate] = useState(new Date().toISOString().split("T")[0]);
+  const [newChecklistText, setNewChecklistText] = useState("");
+
+  const fetchTasks = async () => {
     if (!user) return;
+    setIsLoading(true);
     try {
-      const res = await fetch("/api/enquiries");
+      const res = await fetch(`/api/tasks?assignedTo=${encodeURIComponent(user.name || '')}`);
       const data = await res.json();
-      if (data.success) {
-        const myEnquiries = (data.data || []).filter(
-          (e: any) => (e.assignedCrmAdvisor || "").toLowerCase() === (user.name || "").toLowerCase()
-        );
-        setEnquiries(myEnquiries);
+      if (data.success && Array.isArray(data.tasks)) {
+        setTasks(data.tasks);
       }
-    } catch (e) {
-      console.error("Failed to fetch enquiries:", e);
+    } catch (err) {
+      console.error("Failed to fetch counsellor tasks:", err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchEnquiries();
+    fetchTasks();
   }, [user]);
 
-  const filteredEnquiries = enquiries.filter((enq) => {
-    const matchesSearch = searchQuery === "" ||
-      (enq.studentFullName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (enq.primaryPhoneMobile || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (enq.targetCourse || "").toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesPriority = priorityFilter === "All Priorities" || enq.priorityLevel === priorityFilter;
-
-    let matchesChecklist = true;
-    if (checklistFilter === "Show Pending Checklist") {
-      matchesChecklist = enq.status !== "Admitted";
-    } else if (checklistFilter === "Show Completed") {
-      matchesChecklist = enq.status === "Admitted";
+  // Toggle checklist item
+  const handleToggleChecklist = async (taskId: string, checklistIndex: number, currentVal: boolean) => {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          checklistIndex,
+          isChecklistCompleted: !currentVal
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchTasks();
+      }
+    } catch (err) {
+      console.error("Failed to toggle checklist:", err);
     }
+  };
 
-    let matchesContact = true;
-    if (contactTypeFilter !== "All Contact Types") {
-      matchesContact = (enq.followUps || []).some((f: any) => f.typeOfContact === contactTypeFilter);
+  // Complete task
+  const handleCompleteTask = async (taskId: string) => {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Completed" })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchTasks();
+      }
+    } catch (err) {
+      console.error("Failed to complete task:", err);
     }
+  };
 
-    return matchesSearch && matchesPriority && matchesChecklist && matchesContact;
-  });
+  // Create Manual Task
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle) return;
+
+    const checklistItems = newChecklistText
+      .split("\n")
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newTitle,
+          taskType: newType,
+          linkedStudentName: newStudent,
+          assignedTo: user?.name || "System",
+          priority: newPriority,
+          dueDate: newDueDate,
+          checklist: checklistItems
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsNewTaskModalOpen(false);
+        setNewTitle("");
+        setNewStudent("");
+        setNewChecklistText("");
+        fetchTasks();
+      }
+    } catch (err) {
+      console.error("Failed creating task:", err);
+    }
+  };
 
   if (!user) return null;
 
+  const todayStr = new Date().toDateString();
+
+  // Filter tasks based on tabs and dropdowns
+  const filteredTasks = tasks.filter((t) => {
+    // Tab filter
+    if (activeTab === "today") {
+      const d = new Date(t.dueDate).toDateString();
+      if (d !== todayStr || t.status === "Completed") return false;
+    } else if (activeTab === "overdue") {
+      if (t.status !== "Overdue") return false;
+    } else if (activeTab === "escalated") {
+      if (!t.isEscalated && t.status !== "Escalated") return false;
+    }
+
+    // Priority filter
+    if (priorityFilter !== "All" && t.priority !== priorityFilter) return false;
+    // Type filter
+    if (typeFilter !== "All" && t.taskType !== typeFilter) return false;
+
+    // Text Search
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (t.title && t.title.toLowerCase().includes(q)) ||
+      (t.linkedStudentName && t.linkedStudentName.toLowerCase().includes(q)) ||
+      (t.description && t.description.toLowerCase().includes(q)) ||
+      (t.taskType && t.taskType.toLowerCase().includes(q))
+    );
+  });
+
+  // Metrics
+  const pendingCount = tasks.filter((t) => t.status === "Pending" || t.status === "In Progress").length;
+  const overdueCount = tasks.filter((t) => t.status === "Overdue").length;
+  const escalatedCount = tasks.filter((t) => t.isEscalated || t.status === "Escalated").length;
+  const completedCount = tasks.filter((t) => t.status === "Completed").length;
+
   return (
-    <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
+    <div className="flex h-screen bg-slate-50 text-slate-800 overflow-hidden font-sans">
       <CounsellorSidebar />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        {/* Header Bar */}
-        {/* <header className="bg-white border-b border-slate-200/60 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-bold text-slate-800 tracking-tight">Dashboard</h1>
-          </div>
-
-          <div className="flex items-center gap-5">
-            <div className="relative hidden md:block">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search anything..."
-                className="pl-9 pr-12 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400 border border-slate-200 bg-white rounded px-1.5 py-0.5">
-                Ctrl + K
-              </span>
+        <div className="p-8 space-y-6 max-w-7xl mx-auto w-full">
+          
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Automated Task Engine & SOP Workflows</h1>
+              <p className="text-xs text-slate-500 font-semibold mt-1">
+                Intelligent operational tasks automatically generated from student leads, admissions, and EMI schedules.
+              </p>
             </div>
 
-            <button className="relative text-slate-400 hover:text-slate-600 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+            <button
+              onClick={() => setIsNewTaskModalOpen(true)}
+              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white border-2 border-white">
-                3
-              </span>
+              <span>Create Operational Task</span>
             </button>
+          </div>
 
-            <div className="flex items-center gap-3 border-l border-slate-200 pl-5 cursor-pointer" onClick={logout}>
-              <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold overflow-hidden shadow-sm">
-                <img src="https://ui-avatars.com/api/?name=Priya+Singh&background=10b981&color=fff" alt="User" className="h-full w-full object-cover" />
+          {/* Metric Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pending Tasks</span>
+                <span className="text-xl font-extrabold text-slate-800">{pendingCount}</span>
               </div>
-              <div className="hidden sm:block">
-                <p className="text-sm font-bold text-slate-800 leading-tight">{user.name || ""}</p>
-                <p className="text-[11px] font-semibold text-emerald-600 leading-tight mt-0.5 capitalize">{user.role}</p>
+              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">⚡</div>
+            </div>
+
+            <div className="bg-white border border-rose-200/80 rounded-2xl p-4 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block">Overdue Tasks</span>
+                <span className="text-xl font-extrabold text-rose-600">{overdueCount}</span>
               </div>
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-              </svg>
+              <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl">🚨</div>
+            </div>
+
+            <div className="bg-white border border-purple-200/80 rounded-2xl p-4 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">Escalated To Manager</span>
+                <span className="text-xl font-extrabold text-purple-700">{escalatedCount}</span>
+              </div>
+              <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl">🎯</div>
+            </div>
+
+            <div className="bg-white border border-emerald-200/80 rounded-2xl p-4 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Completed Tasks</span>
+                <span className="text-xl font-extrabold text-emerald-700">{completedCount}</span>
+              </div>
+              <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">✅</div>
             </div>
           </div>
-        </header> */}
 
-        {/* Dashboard Content */}
-        <motion.div 
-          className="p-8 space-y-6 max-w-7xl mx-auto w-full"
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-        >
-          <motion.div variants={itemVariants}>
-            <h2 className="text-[28px] font-black text-[#1e293b] tracking-tight">My CRM Checklist</h2>
-            <p className="text-[#64748b] text-sm font-bold mt-1">Interactive checklist for logging interactions and tracking scheduled reminders.</p>
-          </motion.div>
-
-          <motion.div variants={itemVariants} className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm">
-            <div className="relative mb-6">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search checklist tasks by student name or details..."
-                className="w-full pl-12 pr-4 py-3 bg-[#f8fafc] border border-slate-200/80 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold text-slate-700"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="relative">
-                <select
-                  className="w-full appearance-none pl-4 pr-10 py-2.5 bg-white border border-slate-200/80 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  value={checklistFilter}
-                  onChange={(e) => setChecklistFilter(e.target.value)}
+          {/* Filter Bar & Tabs */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-1.5 overflow-x-auto">
+                <button
+                  onClick={() => setActiveTab("all")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    activeTab === "all" ? "bg-slate-900 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
                 >
-                  <option>Show Pending Checklist</option>
-                  <option>Show Completed</option>
-                  <option>Show All</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                </div>
+                  All Tasks ({tasks.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab("today")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    activeTab === "today" ? "bg-blue-600 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  Due Today
+                </button>
+                <button
+                  onClick={() => setActiveTab("overdue")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    activeTab === "overdue" ? "bg-rose-600 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  Overdue ({overdueCount})
+                </button>
+                <button
+                  onClick={() => setActiveTab("escalated")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    activeTab === "escalated" ? "bg-purple-600 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  Escalated ({escalatedCount})
+                </button>
               </div>
-              <div className="relative">
-                <select
-                  className="w-full appearance-none pl-4 pr-10 py-2.5 bg-white border border-slate-200/80 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  value={priorityFilter}
-                  onChange={(e) => setPriorityFilter(e.target.value)}
-                >
-                  <option>All Priorities</option>
-                  <option>High</option>
-                  <option>Medium</option>
-                  <option>Low</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                </div>
-              </div>
-              <div className="relative">
-                <select
-                  className="w-full appearance-none pl-4 pr-10 py-2.5 bg-white border border-slate-200/80 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  value={contactTypeFilter}
-                  onChange={(e) => setContactTypeFilter(e.target.value)}
-                >
-                  <option>All Contact Types</option>
-                  <option>Phone Call</option>
-                  <option>Email</option>
-                  <option>Meeting</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                </div>
+
+              <div className="relative w-full sm:w-64">
+                <input
+                  type="text"
+                  placeholder="Search task title, student..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500"
+                />
+                <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
               </div>
             </div>
-          </motion.div>
 
-          <motion.div variants={itemVariants} className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm min-h-[300px] flex flex-col">
-            <h3 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-6">Checklist Tasks ({filteredEnquiries.length})</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                className="text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 outline-none focus:border-indigo-500"
+              >
+                <option value="All">All Priorities</option>
+                <option value="Urgent / Escalated">Urgent / Escalated</option>
+                <option value="High">High Priority</option>
+                <option value="Medium">Medium Priority</option>
+                <option value="Low">Low Priority</option>
+              </select>
 
-            {filteredEnquiries.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center -mt-10">
-                <div className="mb-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-10 h-10 text-slate-300">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <p className="text-sm font-bold text-slate-400">All tasks completed in this query.</p>
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 outline-none focus:border-indigo-500"
+              >
+                <option value="All">All Task SOP Types</option>
+                <option value="Lead Call">Lead Call</option>
+                <option value="Demo">Demo Follow Up</option>
+                <option value="Document Collection">Document Collection</option>
+                <option value="Fee Collection">Fee Collection</option>
+                <option value="Batch Allocation">Batch Allocation</option>
+                <option value="Welcome Onboarding">Welcome Onboarding</option>
+                <option value="EMI Recovery">EMI Recovery</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Task Queue List */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4 min-h-[350px]">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Active Operational Task Queue ({filteredTasks.length})
+            </h3>
+
+            {isLoading ? (
+              <div className="py-12 text-center text-slate-400 font-medium">
+                <div className="h-6 w-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                Loading operational tasks...
+              </div>
+            ) : filteredTasks.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 font-semibold">
+                🎉 No pending tasks match your active filter.
               </div>
             ) : (
-              <motion.div layout className="space-y-3">
+              <div className="space-y-4">
                 <AnimatePresence>
-                {filteredEnquiries.map((enq) => (
-                  <motion.div 
-                    key={enq._id} 
-                    initial={{ opacity: 0, height: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, height: "auto", scale: 1 }}
-                    exit={{ opacity: 0, height: 0, scale: 0.95, margin: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="flex items-center justify-between p-4 border border-slate-100 rounded-xl hover:shadow-md transition-shadow group overflow-hidden cursor-pointer hover:border-indigo-200"
-                    onClick={() => setSelectedLead(enq)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden shrink-0">
-                        <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(enq.studentFullName || 'U')}&background=f1f5f9&color=64748b`} alt={enq.studentFullName} className="h-full w-full" />
+                  {filteredTasks.map((task) => (
+                    <motion.div
+                      key={task._id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className={`p-5 border rounded-2xl transition-all shadow-2xs ${
+                        task.status === "Completed" ? "bg-slate-50 border-slate-200 opacity-65" :
+                        task.isEscalated || task.status === "Escalated" ? "bg-purple-50/40 border-purple-200" :
+                        task.status === "Overdue" ? "bg-rose-50/40 border-rose-200" :
+                        "bg-white border-slate-200/90 hover:border-indigo-300"
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-sm font-extrabold text-slate-900">{task.title}</h4>
+                            
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              task.priority === "Urgent / Escalated" ? "bg-rose-100 text-rose-700 border-rose-200" :
+                              task.priority === "High" ? "bg-amber-100 text-amber-800 border-amber-200" :
+                              "bg-slate-100 text-slate-600 border-slate-200"
+                            }`}>
+                              {task.priority}
+                            </span>
+
+                            {task.autoTriggerSource && (
+                              <span className="bg-indigo-50 text-indigo-700 text-[10px] px-2 py-0.5 rounded-full font-bold border border-indigo-100">
+                                ⚡ {task.autoTriggerSource}
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-xs text-slate-600 font-medium">{task.description}</p>
+
+                          {task.linkedStudentName && (
+                            <div className="text-xs font-semibold text-indigo-600 pt-0.5">
+                              Student: {task.linkedStudentName}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {task.status !== "Completed" && (
+                            <button
+                              onClick={() => handleCompleteTask(task._id)}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                            >
+                              <span>Complete Task</span>
+                              <span>✓</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{enq.studentFullName}</p>
-                        <p className="text-xs text-slate-500 font-semibold mt-0.5">{enq.targetCourse || 'N/A'} • {enq.primaryPhoneMobile}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-[10px] font-bold px-2 py-1 rounded border ${enq.priorityLevel === 'High' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                          enq.priorityLevel === 'Low' ? 'bg-slate-50 text-slate-600 border-slate-200' :
-                            'bg-amber-50 text-amber-600 border-amber-100'
-                        }`}>
-                        {enq.priorityLevel || 'Medium'}
-                      </span>
-                      <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 rounded px-2 py-1">
-                        {enq.status || 'New'}
-                      </span>
-                    </div>
-                  </motion.div>
-                ))}
+
+                      {/* SOP Checklist */}
+                      {task.checklist && task.checklist.length > 0 && (
+                        <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
+                            SOP Action Checklist:
+                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {task.checklist.map((item: any, idx: number) => (
+                              <div
+                                key={idx}
+                                onClick={() => handleToggleChecklist(task._id, idx, item.isCompleted)}
+                                className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2.5 cursor-pointer transition-all ${
+                                  item.isCompleted ? "bg-emerald-50 border-emerald-200 text-emerald-800 line-through" : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-indigo-50/40"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={item.isCompleted}
+                                  onChange={() => {}}
+                                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 cursor-pointer"
+                                />
+                                <span>{item.text}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  ))}
                 </AnimatePresence>
-              </motion.div>
+              </div>
             )}
-          </motion.div>
+          </div>
 
-        </motion.div>
-
-        <LeadProfile
-          lead={selectedLead}
-          onClose={() => setSelectedLead(null)}
-          onSuccess={() => fetchEnquiries()}
-        />
+        </div>
       </div>
+
+      {/* Manual Operational Task Modal */}
+      {isNewTaskModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <h3 className="text-base font-extrabold text-slate-900">Create Operational Task</h3>
+            <form onSubmit={handleCreateTask} className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Task Title</label>
+                <input
+                  type="text"
+                  required
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="e.g. Conduct Mock Interview"
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">SOP Task Type</label>
+                  <select
+                    value={newType}
+                    onChange={(e) => setNewType(e.target.value)}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2"
+                  >
+                    <option value="Lead Call">Lead Call</option>
+                    <option value="Demo">Demo</option>
+                    <option value="Document Collection">Document Collection</option>
+                    <option value="Fee Collection">Fee Collection</option>
+                    <option value="Batch Allocation">Batch Allocation</option>
+                    <option value="Welcome Onboarding">Welcome Onboarding</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Priority</label>
+                  <select
+                    value={newPriority}
+                    onChange={(e) => setNewPriority(e.target.value)}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2"
+                  >
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Student / Candidate Name</label>
+                <input
+                  type="text"
+                  value={newStudent}
+                  onChange={(e) => setNewStudent(e.target.value)}
+                  placeholder="e.g. Aarav Sharma"
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Due Date</label>
+                <input
+                  type="date"
+                  value={newDueDate}
+                  onChange={(e) => setNewDueDate(e.target.value)}
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Checklist Actions (One per line)</label>
+                <textarea
+                  rows={3}
+                  value={newChecklistText}
+                  onChange={(e) => setNewChecklistText(e.target.value)}
+                  placeholder="Action item 1&#10;Action item 2"
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3"
+                ></textarea>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsNewTaskModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl shadow-md"
+                >
+                  Create Task
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <LeadProfile
+        lead={selectedLead}
+        onClose={() => setSelectedLead(null)}
+        onSuccess={() => fetchTasks()}
+      />
     </div>
   );
 }

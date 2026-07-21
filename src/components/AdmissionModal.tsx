@@ -7,7 +7,7 @@ import PaymentReceiptModal from "./PaymentReceiptModal";
 interface AdmissionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  lead: any;
+  lead?: any;
   onSuccess?: () => void;
 }
 

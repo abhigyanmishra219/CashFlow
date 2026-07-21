@@ -5,6 +5,7 @@ import Enquiry from "@/models/Enquiry";
 import Payment from "@/models/Payment";
 import Company from "@/models/Company";
 import Brand from "@/models/Brand";
+import Task from "@/models/Task";
 import { getUserFromCookies } from "@/lib/helper";
 import { sendWhatsAppFeeReceipt } from "@/lib/msg91";
 
@@ -105,6 +106,86 @@ export async function POST(req: NextRequest) {
       } catch (waErr) {
         console.error("Failed to trigger WhatsApp receipt:", waErr);
       }
+    }
+
+    // AUTO TASK ENGINE: Generate 4 SOP Tasks for Admission Onboarding
+    try {
+      const due24h = new Date();
+      due24h.setDate(due24h.getDate() + 1);
+
+      const due48h = new Date();
+      due48h.setDate(due48h.getDate() + 2);
+
+      const counsellorName = admission.counsellor || user?.name || "Unassigned";
+
+      await Task.create([
+        {
+          title: `Document Collection & Verification: ${admission.fullName}`,
+          description: `Collect Govt ID proof, past marksheets, and passport photo for ${admission.course}.`,
+          taskType: "Document Collection",
+          linkedStudentName: admission.fullName,
+          linkedStudentId: admission._id.toString(),
+          assignedTo: counsellorName,
+          priority: "High",
+          status: "Pending",
+          dueDate: due24h,
+          checklist: [
+            { text: "Verify Aadhaar / Govt Identity Card", isCompleted: false },
+            { text: "Upload educational marksheets & photo", isCompleted: false }
+          ],
+          autoTriggerSource: "Auto Event: New Admission SOP Step 1"
+        },
+        {
+          title: `First Installment Receipt & Ledger Sync: ${admission.fullName}`,
+          description: `Ensure registration fee receipt is issued and ledger is verified.`,
+          taskType: "Fee Collection",
+          linkedStudentName: admission.fullName,
+          linkedStudentId: admission._id.toString(),
+          assignedTo: counsellorName,
+          priority: "High",
+          status: "Pending",
+          dueDate: due24h,
+          checklist: [
+            { text: "Confirm payment credit in bank/ledger", isCompleted: true },
+            { text: "Generate official PDF payment receipt", isCompleted: true }
+          ],
+          autoTriggerSource: "Auto Event: New Admission SOP Step 2"
+        },
+        {
+          title: `Batch Allocation & LMS Credentials: ${admission.fullName}`,
+          description: `Assign batch timing in ERP and send LMS portal credentials.`,
+          taskType: "Batch Allocation",
+          linkedStudentName: admission.fullName,
+          linkedStudentId: admission._id.toString(),
+          assignedTo: counsellorName,
+          priority: "Medium",
+          status: "Pending",
+          dueDate: due48h,
+          checklist: [
+            { text: "Allocate batch schedule in ERP Engine", isCompleted: false },
+            { text: "Create student LMS portal account", isCompleted: false }
+          ],
+          autoTriggerSource: "Auto Event: New Admission SOP Step 3"
+        },
+        {
+          title: `Send Welcome Onboarding Package: ${admission.fullName}`,
+          description: `Deliver official welcome onboarding handbook & WhatsApp package.`,
+          taskType: "Welcome Onboarding",
+          linkedStudentName: admission.fullName,
+          linkedStudentId: admission._id.toString(),
+          assignedTo: counsellorName,
+          priority: "Medium",
+          status: "Pending",
+          dueDate: due48h,
+          checklist: [
+            { text: "Send Welcome WhatsApp message & student handbook", isCompleted: false },
+            { text: "Add student to official batch WhatsApp group", isCompleted: false }
+          ],
+          autoTriggerSource: "Auto Event: New Admission SOP Step 4"
+        }
+      ]);
+    } catch (taskErr) {
+      console.error("Auto task SOP generation failed on admission:", taskErr);
     }
 
     return NextResponse.json(

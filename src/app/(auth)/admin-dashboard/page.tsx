@@ -88,15 +88,15 @@ export default function AdminDashboard() {
   // Data for Metric Cards
   const metrics = [
     { name: "Total Leads", value: data?.kpis?.totalLeads || 0, trend: filterLabel === "Overall" ? "Overall" : `Filtered: ${filterLabel}`, isGreen: true, color: "text-blue-600 bg-blue-50 border-blue-100" },
-    { name: filterLabel === "Overall" ? "New Today" : "New Leads", value: data?.kpis?.newLeadsToday || 0, trend: filterLabel === "Overall" ? "Today" : filterLabel, isGreen: true, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
-    { name: filterLabel === "Overall" ? "Follow-ups Today" : "Follow-ups", value: data?.kpis?.followUpsToday || 0, trend: filterLabel === "Overall" ? "Today" : filterLabel, isGreen: true, color: "text-amber-600 bg-amber-50 border-amber-100" },
-    { name: filterLabel === "Overall" ? "Walk-ins Today" : "Walk-ins", value: data?.kpis?.walkinsToday || 0, trend: filterLabel === "Overall" ? "Today" : filterLabel, isGreen: true, color: "text-violet-600 bg-violet-50 border-violet-100" },
-    { name: filterLabel === "Overall" ? "Admissions Today" : "Admissions", value: data?.kpis?.admissionsToday || 0, trend: filterLabel === "Overall" ? "Today" : filterLabel, isGreen: true, color: "text-teal-600 bg-teal-50 border-teal-100" },
-    { name: filterLabel === "Overall" ? "Lost Leads Today" : "Lost Leads", value: data?.kpis?.lostLeadsToday || 0, trend: filterLabel === "Overall" ? "Today" : filterLabel, isGreen: false, color: "text-rose-600 bg-rose-50 border-rose-100" },
+    { name: "Today's Admissions", value: data?.kpis?.admissionsToday || 0, trend: "Today", isGreen: true, color: "text-teal-600 bg-teal-50 border-teal-100" },
+    { name: "Today's Collection", value: data?.kpis?.todayCollection || "₹0", trend: "Today", isGreen: true, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
+    { name: "Monthly Collection", value: data?.kpis?.monthlyCollection || "₹0 L", trend: "Current Month", isGreen: true, color: "text-purple-600 bg-purple-50 border-purple-100" },
+    { name: "Pending Approvals", value: data?.kpis?.pendingApprovals || 0, trend: "Needs Action", isGreen: false, color: "text-amber-600 bg-amber-50 border-amber-100" },
+    { name: "EMI Overdue Summary", value: data?.kpis?.emiOverdueAmount || "₹0 L", trend: `${data?.kpis?.emiOverdueCount || 0} Overdue Students`, isGreen: false, color: "text-rose-600 bg-rose-50 border-rose-100" },
     { name: "Conversion Rate", value: data?.kpis?.conversionRate || "0%", trend: filterLabel === "Overall" ? "Overall" : filterLabel, isGreen: true, color: "text-sky-600 bg-sky-50 border-sky-100" },
-    { name: "Revenue (INR)", value: data?.kpis?.revenue || "₹0 L", trend: filterLabel === "Overall" ? "Total Collections" : filterLabel, isGreen: true, color: "text-purple-600 bg-purple-50 border-purple-100" },
-    { name: "Pending Calls", value: data?.kpis?.pendingCalls || 0, trend: filterLabel === "Overall" ? "Needs attention" : filterLabel, isGreen: false, color: "text-orange-600 bg-orange-50 border-orange-100", simpleText: true },
-    { name: "Hot Leads", value: data?.kpis?.hotLeads || 0, trend: filterLabel === "Overall" ? "High priority" : filterLabel, isGreen: true, color: "text-red-600 bg-red-50 border-red-100", simpleText: true }
+    { name: "Total Revenue", value: data?.kpis?.revenue || "₹0 L", trend: "Total Collections", isGreen: true, color: "text-indigo-600 bg-indigo-50 border-indigo-100" },
+    { name: "Pending Calls", value: data?.kpis?.pendingCalls || 0, trend: "Follow-up due", isGreen: false, color: "text-orange-600 bg-orange-50 border-orange-100", simpleText: true },
+    { name: "Hot Negotiation Leads", value: data?.kpis?.hotLeads || 0, trend: "High Priority", isGreen: true, color: "text-red-600 bg-red-50 border-red-100", simpleText: true }
   ];
 
   const pipeline = data?.pipeline || [];
@@ -236,9 +236,56 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            <ProfileDisplay isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} logout={logout} />
           </div>
         </header>
+
+        {/* Super Admin Quick Actions Bar */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-3 mb-6 shadow-xs flex items-center justify-between gap-3 overflow-x-auto shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider px-2 select-none">Quick Actions:</span>
+            <button
+              onClick={() => router.push("/admin-dashboard/brands")}
+              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl border border-blue-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <span>🏢 Add Brand</span>
+            </button>
+            <button
+              onClick={() => router.push("/companies")}
+              className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold rounded-xl border border-purple-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <span>🏛️ Add Company</span>
+            </button>
+            <button
+              onClick={() => router.push("/counsellors")}
+              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <span>👤 Add User</span>
+            </button>
+            <button
+              onClick={() => router.push("/admin-dashboard/reports")}
+              className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold rounded-xl border border-amber-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <span>📊 View Reports</span>
+            </button>
+          </div>
+
+          <button
+            onClick={() => {
+              if (!data?.enquiriesList) return;
+              const csvContent = "data:text/csv;charset=utf-8," + ["ID,Student,Course,Counsellor,Stage"].concat(data.enquiriesList.map((e: any) => `${e.id},${e.student},${e.course},${e.counsellor},${e.stage}`)).join("\n");
+              const encodedUri = encodeURI(csvContent);
+              const link = document.createElement("a");
+              link.setAttribute("href", encodedUri);
+              link.setAttribute("download", `CoachFlow_Export_${new Date().toISOString().split("T")[0]}.csv`);
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
+            className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
+          >
+            <span>📥 Export Data (CSV)</span>
+          </button>
+        </div>
 
         <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} />
 
