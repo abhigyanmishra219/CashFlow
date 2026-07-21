@@ -21,8 +21,39 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
     website: "",
     address: "",
     companies: [] as string[],
+    receiptTemplateUrl: "",
+    receiptTerms: "",
   });
   const [availableCompanies, setAvailableCompanies] = useState<{ id: string; name: string }[]>([]);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingPdf(true);
+    try {
+      const data = new FormData();
+      data.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: data,
+      });
+      const result = await res.json();
+
+      if (res.ok && result.success) {
+        setFormData((prev) => ({ ...prev, receiptTemplateUrl: result.url }));
+      } else {
+        alert(result.message || "Failed to upload PDF template.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error uploading PDF format file.");
+    } finally {
+      setIsUploadingPdf(false);
+    }
+  };
 
   useEffect(() => {
     fetch("/api/companies")
@@ -47,6 +78,8 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
         website: brandToEdit.website || "",
         address: brandToEdit.address || "",
         companies: brandToEdit.companies || [],
+        receiptTemplateUrl: brandToEdit.receiptTemplateUrl || "",
+        receiptTerms: brandToEdit.receiptTerms || "",
       });
     } else {
       setFormData({
@@ -59,6 +92,8 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
         website: "",
         address: "",
         companies: [],
+        receiptTemplateUrl: "",
+        receiptTerms: "",
       });
     }
   }, [brandToEdit, isOpen]);
@@ -265,6 +300,78 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
               {availableCompanies.length === 0 && (
                 <div className="text-xs text-slate-400 italic">No companies available to associate.</div>
               )}
+            </div>
+          </div>
+
+          {/* Fee Receipt Format Upload Section */}
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-800 uppercase tracking-wider">
+                  Fee Receipt Format (PDF / Template Upload)
+                </label>
+                <p className="text-[10px] text-slate-500 font-medium">
+                  Upload custom PDF receipt format for this brand or enter template URL
+                </p>
+              </div>
+              {formData.receiptTemplateUrl && (
+                <a
+                  href={formData.receiptTemplateUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-all flex items-center gap-1"
+                >
+                  <span>📄 View Uploaded Format</span>
+                </a>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                  Upload PDF Template File
+                </label>
+                <input
+                  type="file"
+                  accept="application/pdf,image/*"
+                  onChange={handleFileUpload}
+                  disabled={isUploadingPdf}
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2 focus:outline-none file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                />
+                {isUploadingPdf && (
+                  <span className="text-[10px] font-bold text-indigo-600 animate-pulse mt-1 block">
+                    Uploading PDF template...
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                  Receipt Format URL (Direct Link)
+                </label>
+                <input
+                  type="text"
+                  name="receiptTemplateUrl"
+                  value={formData.receiptTemplateUrl}
+                  onChange={handleChange}
+                  placeholder="/uploads/sample-receipt.pdf or https://..."
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                Brand Custom Terms & Conditions (Optional)
+              </label>
+              <textarea
+                name="receiptTerms"
+                value={formData.receiptTerms}
+                onChange={handleChange}
+                placeholder="Enter specific receipt terms for this brand (overrides default terms)..."
+                rows={2}
+                className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 resize-none"
+              />
             </div>
           </div>
 

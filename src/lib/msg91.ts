@@ -187,3 +187,246 @@ export async function sendWhatsAppFeeReceipt(params: FeeReceiptWhatsAppParams) {
     };
   }
 }
+
+export interface DailyReportWhatsAppParams {
+  adminMobileNumber: string;
+  reportData: import("./dailyReportService").DailyReportStats;
+  pdfUrl?: string;
+}
+
+/**
+ * Dispatch MSG91 WhatsApp Outbound Template Message for Daily Executive Report (template: "dailyreport")
+ */
+export async function sendWhatsAppDailyReport(params: DailyReportWhatsAppParams) {
+  try {
+    const authKey =
+      process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+    const integratedNumber =
+      process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+
+    const formattedPhone = formatPhoneNumber(params.adminMobileNumber);
+    if (!formattedPhone) {
+      console.warn("MSG91 WhatsApp Warning: Invalid admin mobile number.");
+      return { success: false, error: "Invalid admin mobile number." };
+    }
+
+    const appBaseUrl =
+      process.env.PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "";
+    
+    const reportPdfUrl =
+      params.pdfUrl ||
+      (appBaseUrl
+        ? `${appBaseUrl.replace(/\/$/, "")}/api/reports/daily/pdf`
+        : process.env.MSG91_DEFAULT_PDF_URL ||
+          "https://pdfobject.com/pdf/sample-3pp.pdf");
+
+    const safeDate = params.reportData.dateStr.replace(/[^a-zA-Z0-9]/g, "_");
+    const filename = `Daily_Report_${safeDate}.pdf`;
+
+    const body1 = params.reportData.dateStr;
+    const body2 = `Leads: ${params.reportData.totalLeads} | Demos: ${params.reportData.demoSessions} | Admissions: ${params.reportData.admissionsToday}`;
+    const body3 = `Today: ₹${params.reportData.todaysCollection.toLocaleString('en-IN')} | Month: ₹${params.reportData.monthlyCollection.toLocaleString('en-IN')} | Pending: ₹${params.reportData.pendingFees.toLocaleString('en-IN')} | Overdue EMIs: ${params.reportData.overdueEmis}`;
+
+    const payload = {
+      integrated_number: integratedNumber,
+      content_type: "template",
+      payload: {
+        messaging_product: "whatsapp",
+        type: "template",
+        template: {
+          name: "dailyreport",
+          language: {
+            code: "en",
+            policy: "deterministic",
+          },
+          namespace: null,
+          to_and_components: [
+            {
+              to: [formattedPhone],
+              components: {
+                header_1: {
+                  filename: filename,
+                  type: "document",
+                  value: reportPdfUrl,
+                },
+                body_1: {
+                  type: "text",
+                  value: body1,
+                },
+                body_2: {
+                  type: "text",
+                  value: body2,
+                },
+                body_3: {
+                  type: "text",
+                  value: body3,
+                },
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (authKey) {
+      headers["authkey"] = authKey;
+    }
+
+    console.log(
+      `MSG91 WhatsApp Sending Daily Report to ${formattedPhone}...`
+    );
+
+    const response = await fetch(
+      "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const resText = await response.text();
+    let resJson: any = null;
+    try {
+      resJson = JSON.parse(resText);
+    } catch (_) {}
+
+    console.log("MSG91 Daily Report Response:", resText);
+
+    if (response.ok) {
+      return {
+        success: true,
+        data: resJson || resText,
+      };
+    } else {
+      return {
+        success: false,
+        error: resJson?.message || resText || "Failed to send WhatsApp daily report.",
+      };
+    }
+  } catch (error: any) {
+    console.error("MSG91 Daily Report Error:", error);
+    return {
+      success: false,
+      error: error.message || "Network error during MSG91 daily report dispatch.",
+    };
+  }
+}
+
+/**
+ * Send Monthly WhatsApp Executive Summary PDF Report via MSG91
+ */
+export async function sendWhatsAppMonthlyReport(params: {
+  adminMobileNumber: string;
+  reportData: import("./dailyReportService").DailyReportStats;
+}) {
+  try {
+    const authKey = process.env.MSG91_AUTHKEY;
+    const integratedNumber =
+      process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+    const publicAppUrl =
+      process.env.PUBLIC_APP_URL || "https://cashflow-git-734957305541.asia-south2.run.app";
+
+    let formattedPhone = params.adminMobileNumber.replace(/\D/g, "");
+    if (formattedPhone.length === 10) {
+      formattedPhone = `91${formattedPhone}`;
+    }
+
+    const reportPdfUrl = `${publicAppUrl}/api/reports/monthly/pdf`;
+    const filename = `Monthly_Report_${params.reportData.dateStr.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+
+    const body1 = params.reportData.dateStr;
+    const body2 = `MTD Leads: ${params.reportData.totalLeads} | MTD Demos: ${params.reportData.demoSessions} | MTD Admissions: ${params.reportData.admissionsToday}`;
+    const body3 = `Monthly Revenue: ₹${params.reportData.monthlyCollection.toLocaleString('en-IN')} | Today: ₹${params.reportData.todaysCollection.toLocaleString('en-IN')} | Pending: ₹${params.reportData.pendingFees.toLocaleString('en-IN')} | Overdue EMIs: ${params.reportData.overdueEmis}`;
+
+    const payload = {
+      integrated_number: integratedNumber,
+      content_type: "template",
+      payload: {
+        messaging_product: "whatsapp",
+        type: "template",
+        template: {
+          name: "dailyreport",
+          language: {
+            code: "en",
+            policy: "deterministic",
+          },
+          namespace: null,
+          to_and_components: [
+            {
+              to: [formattedPhone],
+              components: {
+                header_1: {
+                  filename: filename,
+                  type: "document",
+                  value: reportPdfUrl,
+                },
+                body_1: {
+                  type: "text",
+                  value: body1,
+                },
+                body_2: {
+                  type: "text",
+                  value: body2,
+                },
+                body_3: {
+                  type: "text",
+                  value: body3,
+                },
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (authKey) {
+      headers["authkey"] = authKey;
+    }
+
+    console.log(`MSG91 WhatsApp Sending Monthly Report to ${formattedPhone}...`);
+
+    const response = await fetch(
+      "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const resText = await response.text();
+    let resJson: any = null;
+    try {
+      resJson = JSON.parse(resText);
+    } catch (_) {}
+
+    if (response.ok) {
+      return {
+        success: true,
+        data: resJson || resText,
+      };
+    } else {
+      return {
+        success: false,
+        error: resJson?.message || resText || "Failed to send WhatsApp monthly report.",
+      };
+    }
+  } catch (error: any) {
+    console.error("MSG91 Monthly Report Error:", error);
+    return {
+      success: false,
+      error: error.message || "Network error during MSG91 monthly report dispatch.",
+    };
+  }
+}

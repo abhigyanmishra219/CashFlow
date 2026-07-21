@@ -10,13 +10,13 @@ envFile.split('\n').forEach(line => {
 async function testMsg91() {
   const authKey = envVars.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
   const integratedNumber = envVars.MSG91_INTEGRATED_NUMBER || "919335913286";
-  const publicAppUrl = envVars.PUBLIC_APP_URL || "https://uncounted-boxing-neurology.ngrok-free.dev";
+  const publicAppUrl = envVars.PUBLIC_APP_URL || "https://cashflow-git-734957305541.asia-south2.run.app";
 
   const pdfUrl = `${publicAppUrl}/api/receipts/REC-2026-00014/pdf`;
 
   console.log("Using AuthKey:", authKey);
   console.log("Using Integrated Number:", integratedNumber);
-  console.log("Using Ngrok Receipt PDF URL:", pdfUrl);
+  console.log("Using Production Receipt PDF URL:", pdfUrl);
 
   const payload = {
     "integrated_number": integratedNumber,

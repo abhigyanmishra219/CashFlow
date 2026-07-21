@@ -39,7 +39,13 @@ const BrandSchema = new mongoose.Schema(
     brandId: {
       type: String,
       unique: true,
-    }
+    },
+    receiptTemplateUrl: {
+      type: String,
+    },
+    receiptTerms: {
+      type: String,
+    },
   },
   { timestamps: true }
 );

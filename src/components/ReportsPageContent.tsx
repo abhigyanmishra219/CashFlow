@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
@@ -34,6 +34,78 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
   const [selectedColumns, setSelectedColumns] = useState<string[]>(AVAILABLE_COLUMNS.map(c => c.id));
   const [isGenerating, setIsGenerating] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
+  const [adminPhone, setAdminPhone] = useState("919335913286");
+  const [isSendingWhatsAppReport, setIsSendingWhatsAppReport] = useState(false);
+  const [waReportStatus, setWaReportStatus] = useState({ text: "", type: "" });
+  const [isSendingMonthlyReport, setIsSendingMonthlyReport] = useState(false);
+  const [monthlyReportStatus, setMonthlyReportStatus] = useState({ text: "", type: "" });
+
+  useEffect(() => {
+    const rawUserPhone = (user as any)?.phone || (user as any)?.mobile || (user as any)?.phoneNumber || (user as any)?.mobileNumber;
+    if (rawUserPhone) {
+      let digits = rawUserPhone.toString().replace(/\D/g, "");
+      if (digits.length === 10) digits = `91${digits}`;
+      if (digits) setAdminPhone(digits);
+    }
+  }, [user]);
+
+  const handleSendDailyWhatsAppReport = async () => {
+    setIsSendingWhatsAppReport(true);
+    setWaReportStatus({ text: "Gathering metrics & generating PDF report...", type: "info" });
+    try {
+      const res = await fetch("/api/reports/daily/send-whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminMobileNumber: adminPhone }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setWaReportStatus({
+          text: `Daily Report PDF successfully sent to ${adminPhone}! (Leads: ${data.stats?.totalLeads}, Today Coll: ₹${Number(data.stats?.todaysCollection || 0).toLocaleString('en-IN')})`,
+          type: "success",
+        });
+      } else {
+        setWaReportStatus({
+          text: data.message || "Failed to send WhatsApp daily report.",
+          type: "error",
+        });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setWaReportStatus({ text: err.message || "Failed to trigger report.", type: "error" });
+    } finally {
+      setIsSendingWhatsAppReport(false);
+    }
+  };
+
+  const handleSendMonthlyWhatsAppReport = async () => {
+    setIsSendingMonthlyReport(true);
+    setMonthlyReportStatus({ text: "Gathering Month-To-Date (Day 1 to Today) metrics & generating PDF...", type: "info" });
+    try {
+      const res = await fetch("/api/reports/monthly/send-whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminMobileNumber: adminPhone }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMonthlyReportStatus({
+          text: `Monthly MTD Report PDF successfully sent to ${adminPhone}! (MTD Leads: ${data.stats?.totalLeads}, Monthly Coll: ₹${Number(data.stats?.monthlyCollection || 0).toLocaleString('en-IN')})`,
+          type: "success",
+        });
+      } else {
+        setMonthlyReportStatus({
+          text: data.message || "Failed to send Monthly WhatsApp report.",
+          type: "error",
+        });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setMonthlyReportStatus({ text: err.message || "Failed to trigger report.", type: "error" });
+    } finally {
+      setIsSendingMonthlyReport(false);
+    }
+  };
 
   const toggleColumn = (id: string) => {
     setSelectedColumns(prev =>
@@ -229,6 +301,158 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
             <h2 className="text-3xl font-black text-[#1e293b] tracking-tight">Data Exports</h2>
             <p className="text-slate-500 font-medium mt-1">Export comprehensive collections data and insights to Excel</p>
           </div>
+
+          {/* Daily WhatsApp Report Trigger Card */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white border border-emerald-200/80 rounded-3xl shadow-xl shadow-emerald-900/5 overflow-hidden ring-1 ring-emerald-100"
+          >
+            <div className="p-6 border-b border-emerald-100 bg-emerald-50/50 flex flex-wrap justify-between items-center gap-2">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Daily WhatsApp Executive Report
+                </h3>
+                <p className="text-xs font-semibold text-slate-500 mt-1">
+                  Automated 24-hour midnight dispatch & on-demand force trigger (Midnight to current time metrics in PDF format).
+                </p>
+              </div>
+              <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-extrabold uppercase tracking-wider">
+                MSG91 Template: dailyreport
+              </span>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div className="md:col-span-2 space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                    Admin Mobile Number
+                  </label>
+                  <input
+                    type="text"
+                    value={adminPhone}
+                    onChange={(e) => setAdminPhone(e.target.value)}
+                    placeholder="e.g. 919335913286"
+                    className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Includes: Total Leads, Demo Sessions, Admissions, Today's & Monthly Collection, Pending Fees & Overdue EMIs.
+                  </p>
+                </div>
+
+                <div>
+                  <button
+                    onClick={handleSendDailyWhatsAppReport}
+                    disabled={isSendingWhatsAppReport}
+                    className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isSendingWhatsAppReport ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        Generating & Sending...
+                      </>
+                    ) : (
+                      <>
+                        <span>📲</span>
+                        Send Daily Report Now
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {waReportStatus.text && (
+                <div
+                  className={`p-3.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                    waReportStatus.type === "success"
+                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                      : waReportStatus.type === "error"
+                      ? "bg-rose-50 text-rose-800 border border-rose-200"
+                      : "bg-blue-50 text-blue-800 border border-blue-200"
+                  }`}
+                >
+                  {waReportStatus.text}
+                </div>
+              )}
+            </div>
+          </motion.div>
+
+          {/* Monthly WhatsApp Report Trigger Card */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white border border-indigo-200/80 rounded-3xl shadow-xl shadow-indigo-900/5 overflow-hidden ring-1 ring-indigo-100"
+          >
+            <div className="p-6 border-b border-indigo-100 bg-indigo-50/50 flex flex-wrap justify-between items-center gap-2">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
+                  Monthly WhatsApp Executive Report (Day 1 to Date)
+                </h3>
+                <p className="text-xs font-semibold text-slate-500 mt-1">
+                  Automated end-of-month dispatch (last day of month at 23:59) & on-demand force trigger (Day 1 to Today MTD metrics in PDF format).
+                </p>
+              </div>
+              <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-[10px] font-extrabold uppercase tracking-wider">
+                MSG91 Template: dailyreport (MTD)
+              </span>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div className="md:col-span-2 space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                    Target Mobile Number
+                  </label>
+                  <input
+                    type="text"
+                    value={adminPhone}
+                    onChange={(e) => setAdminPhone(e.target.value)}
+                    placeholder="e.g. 919335913286"
+                    className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Aggregates: MTD Leads, MTD Demos, MTD Admissions, Monthly Collection (Day 1 to Date), Pending Fees & Overdue EMIs.
+                  </p>
+                </div>
+
+                <div>
+                  <button
+                    onClick={handleSendMonthlyWhatsAppReport}
+                    disabled={isSendingMonthlyReport}
+                    className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-extrabold shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isSendingMonthlyReport ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        Generating MTD Report...
+                      </>
+                    ) : (
+                      <>
+                        <span>📊</span>
+                        Send Monthly Report Now
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {monthlyReportStatus.text && (
+                <div
+                  className={`p-3.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                    monthlyReportStatus.type === "success"
+                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                      : monthlyReportStatus.type === "error"
+                      ? "bg-rose-50 text-rose-800 border border-rose-200"
+                      : "bg-indigo-50 text-indigo-800 border border-indigo-200"
+                  }`}
+                >
+                  {monthlyReportStatus.text}
+                </div>
+              )}
+            </div>
+          </motion.div>
 
       <motion.div 
         initial={{ opacity: 0, y: 10 }}

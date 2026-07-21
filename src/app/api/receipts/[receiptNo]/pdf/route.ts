@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readFile } from "fs/promises";
+import path from "path";
 import dbConnect from "@/lib/db";
 import Payment from "@/models/Payment";
 import Admission from "@/models/Admission";
+import Brand from "@/models/Brand";
 import { generateReceiptPdfBuffer } from "@/lib/pdfGenerator";
 
 export async function GET(
@@ -38,6 +41,37 @@ export async function GET(
     const finalFee = Number(admission?.finalFee || admission?.courseFee || 0);
     const remainingBalance = Number(admission?.remainingBalance ?? 0);
     const totalPaidToDate = Math.max(0, finalFee - remainingBalance);
+    const targetBrandName = payment?.brand || admission?.brand || "CADD MANTRA";
+    const brand = await Brand.findOne({
+      $or: [
+        { name: { $regex: new RegExp(`^${targetBrandName}$`, "i") } },
+        { code: { $regex: new RegExp(`^${targetBrandName}$`, "i") } },
+      ],
+    }).lean();
+
+    // If brand has an uploaded custom receipt template PDF file, serve it directly
+    if (brand && brand.receiptTemplateUrl && brand.receiptTemplateUrl.startsWith("/uploads/")) {
+      try {
+        const filePath = path.join(process.cwd(), "public", brand.receiptTemplateUrl);
+        const fileBuffer = await readFile(filePath);
+        return new NextResponse(Uint8Array.from(fileBuffer), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `inline; filename="Fee_Receipt_${receiptNo}.pdf"`,
+            "Cache-Control": "public, max-age=3600",
+          },
+        });
+      } catch (err) {
+        console.error("Error reading brand template PDF file:", err);
+      }
+    }
+
+    const rawCompany = payment?.company || admission?.companyAssigned;
+    const companyName =
+      rawCompany && rawCompany !== "Cash" && rawCompany !== "Unallocated"
+        ? rawCompany
+        : brand?.companies?.[0] || "M/s CT ENTERPRISES";
 
     const pdfBuffer = generateReceiptPdfBuffer({
       receiptNo,
@@ -48,8 +82,9 @@ export async function GET(
       paymentDate,
       paymentMode: payment?.paymentMode || "Cash",
       referenceNo: payment?.referenceNo || "N/A",
-      brandName: payment?.brand || admission?.brand || "CADD MANTRA",
-      companyName: payment?.company || admission?.companyAssigned || "Design Gateway Pvt Ltd",
+      brandName: targetBrandName,
+      brandAddress: brand?.address || undefined,
+      companyName,
       totalFee: finalFee,
       totalPaidToDate,
       remainingBalance,

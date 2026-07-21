@@ -57,7 +57,7 @@ export async function POST(req: Request) {
   try {
     await dbConnect();
     const body = await req.json();
-    const { name, code, logoUrl, description, phone, email, website, address, companies } = body;
+    const { name, code, logoUrl, description, phone, email, website, address, companies, receiptTemplateUrl, receiptTerms } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
@@ -73,6 +73,8 @@ export async function POST(req: Request) {
       website,
       address,
       companies: Array.isArray(companies) ? companies : [],
+      receiptTemplateUrl,
+      receiptTerms,
       status: "ACTIVE",
     });
 
