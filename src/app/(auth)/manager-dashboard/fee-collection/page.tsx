@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import ManagerSidebar from "@/components/ManagerSidebar";
+import PaymentReceiptModal from "@/components/PaymentReceiptModal";
 import { useUser } from "@/app/component/context/user-context";
 
 interface AdmissionType {
@@ -285,6 +286,20 @@ export default function FeeCollectionPage() {
                     setSelectedStudent(freshData.data[0]);
                 }
                 fetchPayments(selectedStudent._id);
+
+                const newReceipt = resData.data || {
+                    receiptNo: resData.receiptNo || `REC-${Date.now().toString().slice(-6)}`,
+                    amountReceived: inputAmtVal,
+                    paymentMode,
+                    referenceNo,
+                    remarks,
+                    company: selectedCompany,
+                    paymentDate: new Date().toISOString(),
+                    particulars: { courseFeeDue: allocatedCourse },
+                };
+                setSelectedReceipt(newReceipt);
+                setActiveModal("print");
+
                 setAmountReceived("");
                 setRemarks("");
                 fetchRecentAdmissions();
@@ -792,14 +807,6 @@ export default function FeeCollectionPage() {
                                                 Reset
                                             </button>
                                             <button
-                                                type="button"
-                                                onClick={handlePaymentSubmit}
-                                                disabled={isSubmitting}
-                                                className="px-5 py-2.5 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-colors disabled:opacity-50"
-                                            >
-                                                Save & Print Receipt
-                                            </button>
-                                            <button
                                                 type="submit"
                                                 disabled={isSubmitting}
                                                 className="px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/20 rounded-xl transition-all disabled:opacity-50"
@@ -1158,130 +1165,16 @@ export default function FeeCollectionPage() {
                     )}
 
                     {/* Print Receipt Modal */}
-                    {activeModal === "print" && selectedReceipt && (
-                        <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh]">
-                            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                                <h3 className="text-sm font-extrabold text-slate-800 flex items-center gap-2">
-                                    🖨️ Receipt Details
-                                </h3>
-                                <button onClick={() => {
-                                    setSelectedReceipt(null);
-                                    setActiveModal(null);
-                                }} className="text-slate-400 hover:text-slate-600 font-bold text-lg">×</button>
-                            </div>
-
-                            <div className="p-6 overflow-y-auto flex-1" id="printable-receipt">
-                                <div className="border border-slate-200/80 rounded-2xl p-6 space-y-6 text-xs text-slate-700 bg-white font-semibold">
-                                    <div className="text-center border-b border-slate-100 pb-4">
-                                        <h2 className="text-lg font-black text-indigo-600 tracking-tight uppercase">{selectedStudent.brand || "CADD Mantra"}</h2>
-                                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Official Fee Receipt</p>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-4">
-                                        <div className="space-y-1">
-                                            <p><span className="text-slate-400">Receipt No:</span> <span className="font-mono font-bold text-slate-800">{selectedReceipt.receiptNo}</span></p>
-                                            <p><span className="text-slate-400">Student Name:</span> <span className="text-slate-800">{selectedStudent.fullName}</span></p>
-                                            <p><span className="text-slate-400">Admission No:</span> <span className="text-slate-800 font-mono">{selectedStudent.admissionId}</span></p>
-                                        </div>
-                                        <div className="space-y-1 text-right">
-                                            <p>
-                                                <span className="text-slate-400">Receipt Date:</span>{" "}
-                                                <span className="text-slate-800">
-                                                    {new Date(selectedReceipt.paymentDate || selectedReceipt.createdAt).toLocaleDateString("en-IN", {
-                                                        day: "numeric", month: "short", year: "numeric"
-                                                    })}
-                                                </span>
-                                            </p>
-                                            <p><span className="text-slate-400">Course:</span> <span className="text-slate-800">{selectedStudent.course}</span></p>
-                                            <p><span className="text-slate-400">Batch:</span> <span className="text-slate-800">{selectedStudent.batch}</span></p>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        <h4 className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Transaction Breakup</h4>
-                                        <div className="border border-slate-100 rounded-xl overflow-hidden">
-                                            <table className="w-full text-left text-xs font-semibold">
-                                                <thead>
-                                                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-400">
-                                                        <th className="p-3">Particulars</th>
-                                                        <th className="p-3 text-right">Paid Amount (₹)</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-50">
-                                                    {selectedReceipt.particulars?.courseFeeDue > 0 && (
-                                                        <tr>
-                                                            <td className="p-3 text-slate-800">Course Fee Allocation</td>
-                                                            <td className="p-3 text-right font-bold">₹{selectedReceipt.particulars.courseFeeDue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                                                        </tr>
-                                                    )}
-                                                    {selectedReceipt.particulars?.registrationFeeDue > 0 && (
-                                                        <tr>
-                                                            <td className="p-3 text-slate-800">Registration Fee Allocation</td>
-                                                            <td className="p-3 text-right font-bold">₹{selectedReceipt.particulars.registrationFeeDue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                                                        </tr>
-                                                    )}
-                                                    {!(selectedReceipt.particulars?.courseFeeDue > 0) && !(selectedReceipt.particulars?.registrationFeeDue > 0) && (
-                                                        <tr>
-                                                            <td className="p-3 text-slate-800">General Fee Payment</td>
-                                                            <td className="p-3 text-right font-bold">₹{selectedReceipt.amountReceived.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                                                        </tr>
-                                                    )}
-                                                    <tr className="bg-slate-50/50 font-extrabold text-slate-800">
-                                                        <td className="p-3">Total Amount Received</td>
-                                                        <td className="p-3 text-right text-indigo-600">₹{selectedReceipt.amountReceived.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex justify-between items-center text-[10px] font-bold">
-                                        <div>
-                                            <span className="block text-slate-400 uppercase">Payment Mode</span>
-                                            <span className="text-slate-800 text-xs">{selectedReceipt.paymentMode}</span>
-                                        </div>
-                                        {selectedReceipt.referenceNo && (
-                                            <div className="text-right">
-                                                <span className="block text-slate-400 uppercase">Reference / TXN No</span>
-                                                <span className="text-slate-800 text-xs font-mono">{selectedReceipt.referenceNo}</span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="pt-8 flex justify-between items-end">
-                                        <div className="space-y-0.5">
-                                            <p className="text-[8px] text-slate-400 uppercase">Company Assigned</p>
-                                            <p className="text-slate-800 font-bold">{selectedReceipt.company || selectedStudent.companyAssigned || "Design Gateway Pvt Ltd"}</p>
-                                        </div>
-                                        <div className="border-t border-slate-200 pt-1 px-8 text-center text-slate-400 text-[10px] font-bold">
-                                            Authorized Signature
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
-                                <button
-                                    onClick={() => {
-                                        setSelectedReceipt(null);
-                                        setActiveModal(null);
-                                    }}
-                                    className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100 transition-colors"
-                                >
-                                    Close
-                                </button>
-                                <button
-                                    onClick={() => window.print()}
-                                    className="px-5 py-2 bg-indigo-600 text-white hover:bg-indigo-500 rounded-xl text-xs font-bold shadow-md shadow-indigo-600/10 transition-all flex items-center gap-1.5"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.617 0-1.11-.476-1.12-1.09l-.23-2.524m11.78 0H5.877m12.002-9.07c.052-.314.231-.59.504-.747m0 0l.852-.49a1.125 1.125 0 011.5 1.5l-.49.852m0 0a1.123 1.123 0 01-.747.504m0 0a40.06 40.06 0 00-11.782 0M18.84 8.18a1.124 1.124 0 00-.747-.504m0 0l-.852-.49a1.125 1.125 0 00-1.5 1.5l.49.852m0 0c.157.272.433.451.747.504m0 0a40.063 40.063 0 0011.782 0M6.16 8.18c.314-.052.59-.23.747-.504l.49-.852a1.125 1.125 0 00-1.5-1.5l-.852.49a1.123 1.123 0 00-.504.747m0 0A39.917 39.917 0 006 13.5m12-5.32c-.052-.314-.231-.59-.504-.747l-.852-.49a1.125 1.125 0 00-1.5 1.5l.49.852c.157.272.433.451.747.504z" />
-                                    </svg>
-                                    Print Receipt
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                    <PaymentReceiptModal
+                        isOpen={activeModal === "print"}
+                        onClose={() => {
+                            setActiveModal(null);
+                            setSelectedReceipt(null);
+                        }}
+                        receipt={selectedReceipt}
+                        student={selectedStudent}
+                        paymentsHistory={paymentsHistory}
+                    />
                 </div>
             )}
 

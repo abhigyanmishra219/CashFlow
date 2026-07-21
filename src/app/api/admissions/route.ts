@@ -6,6 +6,7 @@ import Payment from "@/models/Payment";
 import Company from "@/models/Company";
 import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
+import { sendWhatsAppFeeReceipt } from "@/lib/msg91";
 
 export async function POST(req: NextRequest) {
   try {
@@ -68,6 +69,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Automatically generate a Payment record for the initial payment collected during admission
+    let initialPaymentObj = null;
     if (data.amountReceivedToday > 0) {
       const initialPayment = new Payment({
         admissionId: admission._id,
@@ -86,11 +88,27 @@ export async function POST(req: NextRequest) {
         },
         remarks: "Initial payment upon admission"
       });
-      await initialPayment.save();
+      initialPaymentObj = await initialPayment.save();
+
+      // Trigger MSG91 WhatsApp Fee Receipt notification
+      try {
+        if (admission.mobileNumber) {
+          sendWhatsAppFeeReceipt({
+            studentName: admission.fullName,
+            mobileNumber: admission.mobileNumber,
+            courseName: admission.course,
+            amountPaid: Number(data.amountReceivedToday),
+            paymentDate: new Date(initialPaymentObj.createdAt || Date.now()).toLocaleDateString("en-IN"),
+            receiptNo: initialPaymentObj.receiptNo,
+          }).catch((err) => console.error("Async MSG91 WhatsApp Error:", err));
+        }
+      } catch (waErr) {
+        console.error("Failed to trigger WhatsApp receipt:", waErr);
+      }
     }
 
     return NextResponse.json(
-      { success: true, message: "Admission generated successfully", data: admission },
+      { success: true, message: "Admission generated successfully", data: admission, payment: initialPaymentObj },
       { status: 201 }
     );
   } catch (error: any) {

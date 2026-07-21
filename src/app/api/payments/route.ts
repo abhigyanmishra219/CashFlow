@@ -5,6 +5,7 @@ import Admission from "@/models/Admission";
 import Company from "@/models/Company";
 import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
+import { sendWhatsAppFeeReceipt } from "@/lib/msg91";
 
 export async function GET(req: Request) {
   try {
@@ -123,6 +124,22 @@ export async function POST(req: Request) {
     // 3. Update the admission balance and last transaction details
     admission.remainingBalance = Math.max(0, admission.remainingBalance - Number(amountReceived));
     await admission.save();
+
+    // 4. Dispatch MSG91 WhatsApp Fee Receipt notification
+    try {
+      if (admission.mobileNumber) {
+        sendWhatsAppFeeReceipt({
+          studentName: admission.fullName,
+          mobileNumber: admission.mobileNumber,
+          courseName: admission.course,
+          amountPaid: Number(amountReceived),
+          paymentDate: new Date(payment.createdAt || Date.now()).toLocaleDateString("en-IN"),
+          receiptNo: payment.receiptNo,
+        }).catch((err) => console.error("Async MSG91 WhatsApp Error:", err));
+      }
+    } catch (waErr) {
+      console.error("Failed to trigger WhatsApp receipt:", waErr);
+    }
 
     return NextResponse.json(
       { success: true, message: "Payment processed successfully.", data: payment },

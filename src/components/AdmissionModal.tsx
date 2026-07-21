@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import PaymentReceiptModal from "./PaymentReceiptModal";
 
 interface AdmissionModalProps {
   isOpen: boolean;
@@ -13,6 +14,9 @@ interface AdmissionModalProps {
 export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: AdmissionModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [courses, setCourses] = useState<any[]>([]);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [receiptData, setReceiptData] = useState<any>(null);
+  const [admissionData, setAdmissionData] = useState<any>(null);
   
   // 1. Student Information
   const [fullName, setFullName] = useState(lead?.studentFullName || "");
@@ -139,7 +143,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
     }
   }, [lead, isOpen]);
 
-  const handleGenerateAdmission = async () => {
+  const handleGenerateAdmission = async (generateReceipt = false) => {
     if (!fullName || !mobileNumber || !city || !state || !pincode || !counsellor || 
         !course || !batch || !duration || !startDate || !academicYear || !admissionDate || !companyAssigned) {
       alert("Please fill in all required fields (Full Name, Mobile, City, State, Pincode, Counsellor, Course, Batch, Duration, Start Date, Academic Year, Admission Date, and Company Assigned).");
@@ -164,9 +168,25 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
       const data = await res.json();
       
       if (data.success) {
-        alert("Admission generated successfully!");
-        onSuccess?.();
-        onClose();
+        if (generateReceipt) {
+          const newPayment = data.payment || {
+            receiptNo: `REC-${Date.now().toString().slice(-6)}`,
+            amountReceived: Number(amountReceivedToday),
+            paymentMode: paymentMode || "Cash",
+            referenceNo: transactionNo || "N/A",
+            company: companyAssigned,
+            paymentDate: paymentDate || new Date().toISOString(),
+            remarks: "Initial payment upon admission",
+            particulars: { courseFeeDue: 0 }
+          };
+          setAdmissionData(data.data);
+          setReceiptData(newPayment);
+          setShowReceiptModal(true);
+        } else {
+          onSuccess?.();
+          alert("Admission generated successfully!");
+          onClose();
+        }
       } else {
         alert("Error: " + data.message);
       }
@@ -677,13 +697,13 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
             </button>
           </div>
           <div className="flex gap-3">
-            <button disabled={isSubmitting} onClick={handleGenerateAdmission} className="px-6 py-2.5 bg-white border border-indigo-200 text-indigo-600 rounded-xl text-sm font-bold hover:bg-indigo-50 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50">
+            <button disabled={isSubmitting} onClick={() => handleGenerateAdmission(false)} className="px-6 py-2.5 bg-white border border-indigo-200 text-indigo-600 rounded-xl text-sm font-bold hover:bg-indigo-50 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
               </svg>
               {isSubmitting ? "Processing..." : "Generate Admission"}
             </button>
-            <button disabled={isSubmitting} onClick={handleGenerateAdmission} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-600/20 flex items-center gap-2 disabled:opacity-50">
+            <button disabled={isSubmitting} onClick={() => handleGenerateAdmission(true)} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-600/20 flex items-center gap-2 disabled:opacity-50">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
               </svg>
@@ -694,6 +714,20 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
 
           </motion.div>
         </motion.div>
+      )}
+
+      {showReceiptModal && receiptData && admissionData && (
+        <PaymentReceiptModal
+          isOpen={showReceiptModal}
+          onClose={() => {
+            setShowReceiptModal(false);
+            onSuccess?.();
+            onClose();
+          }}
+          receipt={receiptData}
+          student={admissionData}
+          paymentsHistory={[receiptData]}
+        />
       )}
     </AnimatePresence>
   );
