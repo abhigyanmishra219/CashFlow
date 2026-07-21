@@ -15,7 +15,7 @@ export default function AdminDashboard() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -31,7 +31,7 @@ export default function AdminDashboard() {
   const [startDate, setStartDate] = useState<string | null>(defaultStart);
   const [endDate, setEndDate] = useState<string | null>(defaultEnd);
   const [filterLabel, setFilterLabel] = useState<string>(defaultLabel);
-  
+
   const [trendMode, setTrendMode] = useState<"daily" | "cumulative">("daily");
   const [hoveredTrendDay, setHoveredTrendDay] = useState<any>(null);
   const [hoveredTrendIndex, setHoveredTrendIndex] = useState<number | null>(null);
@@ -100,7 +100,7 @@ export default function AdminDashboard() {
   ];
 
   const pipeline = data?.pipeline || [];
-  
+
   const processedTrendDays = React.useMemo(() => {
     if (!data?.trendDays) return [];
     if (trendMode === "daily") return data.trendDays;
@@ -128,17 +128,17 @@ export default function AdminDashboard() {
 
   // Trend line chart generation
   const maxVal = Math.max(
-    ...(processedTrendDays.map((d: any) => Math.max(d.newLeads, d.admissions, d.lostLeads, d.followUps)) || [0]), 
+    ...(processedTrendDays.map((d: any) => Math.max(d.newLeads, d.admissions, d.lostLeads, d.followUps)) || [0]),
     10
   );
-  
+
   const generatePath = (key: string) => {
     if (!processedTrendDays || processedTrendDays.length === 0) return "";
     const totalPoints = processedTrendDays.length;
     const step = 600 / Math.max(1, totalPoints - 1);
     return processedTrendDays.map((d: any, i: number) => {
       const x = i * step;
-      const y = 160 - ((d[key] || 0) / maxVal) * 140; 
+      const y = 160 - ((d[key] || 0) / maxVal) * 140;
       return `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
     }).join(" ");
   };
@@ -156,7 +156,7 @@ export default function AdminDashboard() {
 
   const handleMarkLost = async () => {
     if (!enquiryToDelete) return;
-    
+
     setIsDeleting(true);
     try {
       const res = await fetch(`/api/enquiries/${enquiryToDelete.dbId}?lostLead=true`, {
@@ -170,7 +170,7 @@ export default function AdminDashboard() {
         }
         const refetchRes = await fetch(url);
         const refetchData = await refetchRes.json();
-        if(refetchData.success) {
+        if (refetchData.success) {
           setData(refetchData.data);
         }
         setIsDeleteModalOpen(false);
@@ -191,7 +191,7 @@ export default function AdminDashboard() {
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6">
-        
+
         <header className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200/80 pb-4 mb-6 shrink-0 transition-colors duration-200">
           <div>
             <div className="text-xs font-semibold text-slate-400 flex items-center gap-1 select-none">
@@ -200,9 +200,9 @@ export default function AdminDashboard() {
               <span className="text-slate-600 font-bold">Enquiries Command Center (Live)</span>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-4 w-full sm:w-auto">
-            <button 
+            <button
               onClick={() => setIsCommandPaletteOpen(true)}
               className="relative w-full sm:w-64 flex items-center justify-between pl-3 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors text-slate-400 group"
             >
@@ -216,15 +216,15 @@ export default function AdminDashboard() {
                 CTRL+K
               </span>
             </button>
+            <ProfileDisplay isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} logout={logout} />
 
 
-            
             <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
               <div className="text-right hidden sm:block">
                 <div className="text-xs font-bold text-slate-700">{user.name}</div>
                 <div className="text-[9px] font-bold text-indigo-600 uppercase tracking-wide">{user.role}</div>
               </div>
-              <button 
+              <button
                 onClick={() => setIsProfileOpen(true)}
                 className="h-8 w-8 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center border border-indigo-500 shadow-md hover:bg-indigo-500 transition-colors overflow-hidden shrink-0"
                 title="View Profile Details"
@@ -293,15 +293,15 @@ export default function AdminDashboard() {
           {/* Student Search & Action Center */}
           <StudentSearchCenter />
 
-          <DashboardFilter 
-            currentLabel={filterLabel} 
+          <DashboardFilter
+            currentLabel={filterLabel}
             onFilterChange={(start, end, label) => {
               setStartDate(start);
               setEndDate(end);
               setFilterLabel(label);
-            }} 
+            }}
           />
-          
+
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-10 gap-3">
             {isLoading && !data ? (
               Array.from({ length: 10 }).map((_, i) => (
@@ -318,10 +318,9 @@ export default function AdminDashboard() {
                   <div className="my-2 flex items-baseline gap-1">
                     <span className="text-xl font-bold text-slate-800 tracking-tight">{card.value}</span>
                   </div>
-                  <span className={`text-[9px] font-bold truncate rounded-md px-1 py-0.5 w-fit ${
-                    card.simpleText ? "text-slate-500 bg-slate-100" :
-                    card.isGreen ? "text-emerald-600 bg-emerald-50" : "text-rose-600 bg-rose-50"
-                  }`}>
+                  <span className={`text-[9px] font-bold truncate rounded-md px-1 py-0.5 w-fit ${card.simpleText ? "text-slate-500 bg-slate-100" :
+                      card.isGreen ? "text-emerald-600 bg-emerald-50" : "text-rose-600 bg-rose-50"
+                    }`}>
                     {card.trend}
                   </span>
                 </div>
@@ -332,7 +331,7 @@ export default function AdminDashboard() {
 
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
+
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs lg:col-span-2">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                 <div className="flex items-center gap-3">
@@ -466,7 +465,7 @@ export default function AdminDashboard() {
 
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
               <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none mb-3">Lead Source Distribution</h2>
-              
+
               <div className="flex items-center gap-4">
                 <div className="h-28 w-28 shrink-0 relative flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
@@ -489,7 +488,7 @@ export default function AdminDashboard() {
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            
+
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">Counsellor Performance</h2>
@@ -581,7 +580,7 @@ export default function AdminDashboard() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            
+
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
               <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none mb-4">System Work Queue</h2>
               <div className="space-y-3 font-semibold text-xs">
@@ -628,10 +627,10 @@ export default function AdminDashboard() {
                     {data?.enquiriesList?.map((e: any, i: number) => (
                       <tr key={i}>
                         <td className="py-2.5 text-center">
-                          <input 
-                            type="checkbox" 
+                          <input
+                            type="checkbox"
                             checked={false}
-                            className="w-3.5 h-3.5 rounded border-slate-300 text-rose-500 focus:ring-rose-500 cursor-pointer" 
+                            className="w-3.5 h-3.5 rounded border-slate-300 text-rose-500 focus:ring-rose-500 cursor-pointer"
                             onChange={(ev) => {
                               if (ev.target.checked) {
                                 if (!e.dbId || e.dbId === "undefined") {
